@@ -41,21 +41,6 @@ export default function LoginPage() {
 
   return (
     <div className="auth-wrap">
-      {/* ── Mobile brand header ── */}
-      <div className="auth-mobile-header">
-        <div className="auth-mobile-header-inner">
-          <Link href="/" className="auth-left-logo">
-            <div className="logo-mark">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M6 1L11 4.5V7.5L6 11L1 7.5V4.5L6 1Z" fill="#c8ff00" />
-              </svg>
-            </div>
-            AgencyForge
-          </Link>
-          <span className="auth-mobile-tagline">The agency that runs <i>itself.</i></span>
-        </div>
-      </div>
-
       {/* ── Left brand panel ── */}
       <div className="auth-left">
         <div className="auth-noise" />
@@ -118,6 +103,20 @@ export default function LoginPage() {
 
       {/* ── Right form panel ── */}
       <div className="auth-right">
+        {/* Mobile brand header — only visible ≤900px */}
+        <div className="auth-mobile-header">
+          <div className="auth-mobile-header-inner">
+            <Link href="/" className="auth-left-logo">
+              <div className="logo-mark">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M6 1L11 4.5V7.5L6 11L1 7.5V4.5L6 1Z" fill="#c8ff00" />
+                </svg>
+              </div>
+              AgencyForge
+            </Link>
+            <span className="auth-mobile-tagline">The agency that runs <i>itself.</i></span>
+          </div>
+        </div>
         <div className="auth-right-nav">
           <span className="auth-right-nav-text">No account yet?</span>
           <Link href="/signup" className="btn-sm btn-dark">
