@@ -1394,6 +1394,7 @@ footer {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .auth-right-nav {
@@ -1833,13 +1834,14 @@ footer {
   z-index: 1;
 }
 
-/* Mobile brand header — shown on small screens instead of left panel */
+/* Mobile brand header — hidden by default, shown ≤900px inside auth-right */
 .auth-mobile-header {
   display: none;
   background: var(--ink);
   padding: 20px clamp(20px, 5vw, 32px);
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .auth-mobile-header::before {
@@ -1870,19 +1872,93 @@ footer {
   font-weight: 400;
 }
 
-/* Responsive */
+/* ── AUTH RESPONSIVE ── */
 @media (max-width: 900px) {
+  /* Stack vertically */
+  .auth-wrap {
+    flex-direction: column;
+    min-height: 100svh;
+  }
+
+  /* Hide desktop left panel */
   .auth-left {
     display: none;
   }
+
+  /* Show compact mobile brand header */
   .auth-mobile-header {
     display: block;
+    flex-shrink: 0;
   }
+
+  /* Right panel fills remaining space */
+  .auth-right {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* Hide accent glow on mobile */
   .auth-right::before {
     display: none;
   }
+
+  /* Nav: spread logo side + action */
   .auth-right-nav {
     justify-content: space-between;
+    padding: 14px 20px;
+  }
+
+  /* Form area: comfortable mobile padding, no center-lock */
+  .auth-form-wrap {
+    justify-content: flex-start;
+    padding: 28px 20px 32px;
+    max-width: 100%;
+  }
+
+  /* Slightly smaller heading on mobile */
+  .auth-form-h1 {
+    font-size: 2rem;
+  }
+
+  /* Sub text tighter */
+  .auth-form-sub {
+    margin-bottom: 24px;
+  }
+
+  /* Live indicator smaller */
+  .auth-live {
+    margin-bottom: 20px;
+    padding: 8px 12px;
+  }
+
+  /* Footer wraps nicely */
+  .auth-right-footer {
+    padding: 14px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-mobile-header {
+    padding: 16px 20px;
+  }
+
+  .auth-mobile-tagline {
+    font-size: 0.825rem;
+  }
+
+  .auth-form-h1 {
+    font-size: 1.75rem;
+  }
+
+  .auth-input {
+    font-size: 1rem; /* Prevents iOS auto-zoom on focus */
+  }
+
+  .auth-social-btn {
+    font-size: 0.85rem;
   }
 }
 
