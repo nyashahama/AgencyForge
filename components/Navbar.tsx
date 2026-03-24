@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Navbar() {
   return (
@@ -20,6 +23,7 @@ export default function Navbar() {
           <a href="#pricing">Pricing</a>
         </div>
         <div className="nav-right">
+          <ThemeToggle />
           <Link href="/login" className="btn-sm btn-ghost-sm">
             Log in
           </Link>

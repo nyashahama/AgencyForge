@@ -1654,6 +1654,119 @@ footer {
   margin-top: 1px;
 }
 
+/* ── DARK MODE ── */
+[data-theme="dark"] {
+  --bg: #111110;
+  --ink: #f0ede6;
+  --ink2: #e0ddd6;
+  --muted: #726e6a;
+  --faint: #1e1c18;
+  --faint2: #2a2824;
+  --white: #181614;
+}
+
+/* Nav: warm dark blur */
+[data-theme="dark"] .nav-bg {
+  background: rgba(17, 17, 16, 0.9);
+}
+
+/* Logo mark stays subtle */
+[data-theme="dark"] .logo-mark {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Hero kicker */
+[data-theme="dark"] .hero-kicker {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Steps hover — hardcoded warm light value */
+[data-theme="dark"] .step:hover {
+  background: #1e1c18;
+}
+
+/* Feature row hover — hardcoded warm light value */
+[data-theme="dark"] .feat-row:hover {
+  background: #242220;
+}
+
+/* Output card hover */
+[data-theme="dark"] .output-card:hover {
+  background: #1e1c18;
+}
+
+/* Testimonial hover */
+[data-theme="dark"] .testi:hover {
+  background: #1e1c18;
+}
+
+/* Pricing featured: keep dark (--ink inverts in dark mode) */
+[data-theme="dark"] .price-card.featured {
+  background: #1a1916;
+}
+
+/* Auth left panel: always dark regardless of theme */
+[data-theme="dark"] .auth-left {
+  background: #0e0e0e;
+}
+
+/* CTA section: keep dark */
+[data-theme="dark"] .cta-bg {
+  background: #0a0908;
+}
+
+/* Footer: keep dark */
+[data-theme="dark"] footer {
+  background: #0a0908;
+}
+
+/* Buttons */
+[data-theme="dark"] .btn-outline:hover {
+  background: rgba(240, 237, 230, 0.05);
+}
+
+[data-theme="dark"] .cta-border:hover {
+  background: rgba(240, 237, 230, 0.05);
+}
+
+/* Auth inputs */
+[data-theme="dark"] .auth-input {
+  background: #1e1c18;
+  border-color: var(--faint2);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .auth-input:focus {
+  border-color: rgba(240, 237, 230, 0.4);
+  box-shadow: 0 0 0 3px rgba(240, 237, 230, 0.05);
+}
+
+[data-theme="dark"] .auth-social-btn {
+  background: #1e1c18;
+  border-color: var(--faint2);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .auth-social-btn:hover {
+  background: #242220;
+  border-color: var(--muted);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .auth-error {
+  background: #2a1515;
+  border-color: #5a2020;
+  color: #fca5a5;
+}
+
+/* Theme toggle sizing */
+.theme-toggle {
+  padding: 6px !important;
+  width: 32px;
+  height: 32px;
+  justify-content: center;
+}
+
 /* Google / social button */
 .auth-social-btn {
   width: 100%;
