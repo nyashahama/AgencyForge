@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function CtaSection() {
   return (
     <section className="cta-section">
@@ -14,7 +16,7 @@ export default function CtaSection() {
           campaign in under an hour.
         </p>
         <div className="cta-actions">
-          <a href="#" className="btn-accent-lg">
+          <Link href="/signup" className="btn-accent-lg">
             Start free — no card needed{" "}
             <svg
               width="13"
@@ -31,7 +33,7 @@ export default function CtaSection() {
                 strokeLinejoin="round"
               />
             </svg>
-          </a>
+          </Link>
           <a href="#" className="btn-ghost-dark">
             Book a live demo
           </a>

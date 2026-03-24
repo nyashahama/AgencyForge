@@ -1,3 +1,4 @@
+import Link from "next/link";
 import React from "react";
 
 export default function Hero() {
@@ -23,7 +24,7 @@ export default function Hero() {
           through your white-label portal.
         </p>
         <div className="hero-actions">
-          <a href="#" className="btn-accent">
+          <Link href="/signup" className="btn-accent">
             Start free trial{" "}
             <svg
               width="13"
@@ -40,7 +41,7 @@ export default function Hero() {
                 strokeLinejoin="round"
               />
             </svg>
-          </a>
+          </Link>
           <a href="#how" className="btn-outline">
             See how it works
           </a>

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Pricing() {
   return (
     <section className="sec" id="pricing">
@@ -35,9 +37,9 @@ export default function Pricing() {
               <li>Legal document templates</li>
               <li>Email support</li>
             </ul>
-            <a href="#" className="plan-cta cta-border">
+            <Link href="/signup" className="plan-cta cta-border">
               Get started
-            </a>
+            </Link>
           </div>
           <div className="price-card featured">
             <div className="pop-badge">Most popular</div>
@@ -59,9 +61,9 @@ export default function Pricing() {
               <li>Custom voice training</li>
               <li>Priority support</li>
             </ul>
-            <a href="#" className="plan-cta cta-lime">
+            <Link href="/signup" className="plan-cta cta-lime">
               Start free trial
-            </a>
+            </Link>
           </div>
           <div className="price-card">
             <div className="plan-label">Enterprise</div>
