@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
+
 type Agent = { name: string; status: string; load: number };
-type User  = { name: string; initials: string; agency: string; plan: string };
+type User = { name: string; initials: string; agency: string; plan: string };
 
 export default function DashboardSidebar({
   activeNav,
@@ -28,19 +30,23 @@ export default function DashboardSidebar({
     { id: "docs", label: "Docs", icon: IconDocs },
   ];
 
-  const activeAgents = agents.filter((a: Agent) => a.status === "active").length;
+  const activeAgents = agents.filter(
+    (a: Agent) => a.status === "active",
+  ).length;
 
   return (
     <aside className="db-sidebar">
       {/* Logo */}
-      <div className="db-sidebar-logo">
-        <div className="db-logo-mark">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M6 1L11 4.5V7.5L6 11L1 7.5V4.5L6 1Z" fill="#c8ff00" />
-          </svg>
+      <Link href="/">
+        <div className="db-sidebar-logo">
+          <div className="db-logo-mark">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M6 1L11 4.5V7.5L6 11L1 7.5V4.5L6 1Z" fill="#c8ff00" />
+            </svg>
+          </div>
+          <span>AgencyForge</span>
         </div>
-        <span>AgencyForge</span>
-      </div>
+      </Link>
 
       {/* Agent pulse */}
       <div className="db-agent-pill">

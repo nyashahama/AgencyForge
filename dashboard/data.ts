@@ -1,7 +1,4 @@
-// ─────────────────────────────────────────────
-// data.js — all mock data in one place.
-// In production, swap these with real API calls.
-// ─────────────────────────────────────────────
+"use client";
 
 export const USER = {
   name: "Sophia Lund",
@@ -45,9 +42,15 @@ export const STATS = [
 type Status = "review" | "generating" | "approved";
 
 export const CAMPAIGNS: {
-  id: string; client: string; name: string; status: Status;
-  statusLabel: string; agents: string[]; progress: number;
-  due: string; urgent: boolean;
+  id: string;
+  client: string;
+  name: string;
+  status: Status;
+  statusLabel: string;
+  agents: string[];
+  progress: number;
+  due: string;
+  urgent: boolean;
 }[] = [
   {
     id: "c-001",

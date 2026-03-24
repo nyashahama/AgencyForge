@@ -1,11 +1,12 @@
-// ─────────────────────────────────────────────
-// StatsBar.jsx
-// Top-of-page KPI strip.
-// Receives: stats[] from data layer.
-// Owns: nothing beyond display.
-// ─────────────────────────────────────────────
+"use client";
 
-type Stat = { label: string; value: string; delta: string; up: boolean; tag: string };
+type Stat = {
+  label: string;
+  value: string;
+  delta: string;
+  up: boolean;
+  tag: string;
+};
 
 export default function StatsBar({ stats }: { stats: Stat[] }) {
   return (

@@ -1,10 +1,4 @@
-// ─────────────────────────────────────────────
-// AgentStatus.jsx
-// Real-time agent load panel.
-// Receives: agents[] from data layer.
-// Owns: display only.
-// ─────────────────────────────────────────────
-
+"use client";
 type Agent = { name: string; status: string; load: number; color: string };
 
 export default function AgentStatus({ agents }: { agents: Agent[] }) {

@@ -1,13 +1,12 @@
-// ─────────────────────────────────────────────
-// ThroughputChart.jsx
-// Weekly campaign throughput mini chart.
-// Pure SVG — no chart library dependency.
-// Receives: throughput[] from data layer.
-// ─────────────────────────────────────────────
+"use client";
 
 type Datum = { day: string; campaigns: number };
 
-export default function ThroughputChart({ throughput }: { throughput: Datum[] }) {
+export default function ThroughputChart({
+  throughput,
+}: {
+  throughput: Datum[];
+}) {
   const max = Math.max(...throughput.map((d) => d.campaigns));
   const H = 64;
   const BAR_W = 24;

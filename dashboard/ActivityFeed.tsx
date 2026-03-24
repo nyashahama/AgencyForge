@@ -1,10 +1,4 @@
-// ─────────────────────────────────────────────
-// ActivityFeed.jsx
-// Live activity timeline.
-// Receives: activity[] from data layer.
-// Owns: display + optional "see all" toggle.
-// ─────────────────────────────────────────────
-
+"use client";
 const TYPE_COLORS = {
   approved: "var(--accent)",
   generate: "#60a5fa",
@@ -13,9 +7,19 @@ const TYPE_COLORS = {
   legal: "#6ee7b7",
 };
 
-type ActivityItem = { id: number; type: string; text: string; time: string; icon: string };
+type ActivityItem = {
+  id: number;
+  type: string;
+  text: string;
+  time: string;
+  icon: string;
+};
 
-export default function ActivityFeed({ activity }: { activity: ActivityItem[] }) {
+export default function ActivityFeed({
+  activity,
+}: {
+  activity: ActivityItem[];
+}) {
   return (
     <div className="db-card db-activity-card">
       <div className="db-card-header">
