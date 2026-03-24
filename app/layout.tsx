@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: "AgencyForge – The agency that runs itself",
   description:
     "Upload a client brief. AI agents generate finished campaigns, ad copy, design direction, media plans, and legal docs — delivered through your white-label portal.",
+  icons: {
+    icon: "./agencyforge_icon.svg",
+  },
 };
 
 export default function RootLayout({
