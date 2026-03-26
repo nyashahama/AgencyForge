@@ -34,7 +34,8 @@ input{font-family:inherit;outline:none;border:none;background:none}
   --white: #181614;
 }
 
-html,body{height:100%;font-family:var(--sans);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;overflow:hidden}
+html{height:100%}
+body{height:100%;font-family:var(--sans);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;overflow:hidden}
 
 /* ── ROOT LAYOUT ── */
 .db-root{display:flex;height:100vh;overflow:hidden}
@@ -156,7 +157,7 @@ html,body{height:100%;font-family:var(--sans);background:var(--bg);color:var(--i
 
 /* ── BODY ── */
 .db-body{
-  flex:1;overflow-y:auto;
+  flex:1;overflow-y:auto;overscroll-behavior:contain;
   padding:24px 28px;display:flex;flex-direction:column;gap:20px;
 }
 
