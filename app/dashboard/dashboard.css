@@ -82,7 +82,7 @@ body{height:100%;font-family:var(--sans);background:var(--bg);color:var(--ink);-
   padding:8px 10px;border-radius:var(--r);
   font-size:0.825rem;font-weight:400;color:rgba(255,255,255,0.38);
   transition:color 0.15s,background 0.15s;text-align:left;
-  position:relative;
+  position:relative;text-decoration:none;
 }
 .db-nav-item:hover{color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.05)}
 .db-nav-item.active{color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.08)}
