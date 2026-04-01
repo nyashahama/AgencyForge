@@ -2,18 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-type Campaign = {
-  id: string;
-  client: string;
-  name: string;
-  status: string;
-  statusLabel: string;
-  agents: string[];
-  progress: number;
-  due: string;
-  urgent: boolean;
-};
+import StatusPill from "./StatusPill";
+import type { Campaign } from "./data";
 
 export default function CampaignTable({
   campaigns,
@@ -86,7 +76,18 @@ export default function CampaignTable({
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-5">{campaign.statusLabel}</td>
+                  <td className="px-6 py-5">
+                    <StatusPill
+                      label={campaign.statusLabel}
+                      tone={
+                        campaign.status === "approved"
+                          ? "success"
+                          : campaign.status === "review"
+                            ? "warning"
+                            : "info"
+                      }
+                    />
+                  </td>
                   <td className="px-6 py-5">
                     <div className="flex flex-wrap gap-2">
                       {campaign.agents.map((agent) => (
@@ -110,9 +111,7 @@ export default function CampaignTable({
                       {campaign.progress}% complete
                     </p>
                   </td>
-                  <td className="px-6 py-5 text-[var(--foreground-muted)]">
-                    {campaign.due}
-                  </td>
+                  <td className="px-6 py-5 text-[var(--foreground-muted)]">{campaign.due}</td>
                 </tr>
               ))}
             </tbody>

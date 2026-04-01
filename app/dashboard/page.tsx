@@ -8,6 +8,7 @@ import AgentStatus from "./components/AgentStatus";
 import ActivityFeed from "./components/ActivityFeed";
 import ThroughputChart from "./components/ThroughputChart";
 import DashboardPageIntro from "./components/DashboardPageIntro";
+import DashboardKpiGrid from "./components/DashboardKpiGrid";
 import { ACTIVITY, AGENTS, CAMPAIGNS, STATS, THROUGHPUT } from "./components/data";
 
 export default function Dashboard() {
@@ -22,6 +23,30 @@ export default function Dashboard() {
         tone="from-lime-300/25 to-transparent"
       />
       <div className="space-y-6">
+        <DashboardKpiGrid
+          items={[
+            {
+              label: "Live delivery",
+              value: `${CAMPAIGNS.filter((campaign) => campaign.status !== "approved").length}`,
+              note: "Campaigns currently assembling or awaiting review",
+            },
+            {
+              label: "Reviews due",
+              value: `${CAMPAIGNS.filter((campaign) => campaign.status === "review").length}`,
+              note: "Client-facing approvals that need team attention",
+            },
+            {
+              label: "Active agents",
+              value: `${AGENTS.filter((agent) => agent.status === "active").length}`,
+              note: "Specialists currently allocated across workflow",
+            },
+            {
+              label: "Approval rhythm",
+              value: "98%",
+              note: "First-pass approval rate across managed work",
+            },
+          ]}
+        />
         <StatsBar stats={STATS} />
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-6">

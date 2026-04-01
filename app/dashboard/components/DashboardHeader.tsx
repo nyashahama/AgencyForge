@@ -11,7 +11,7 @@ import { DASHBOARD_NAV_ITEMS, getDashboardNavItem } from "./navigation";
 export default function DashboardHeader({
   user,
 }: {
-  user: { name: string };
+  user: { name: string; agency?: string };
 }) {
   const pathname = usePathname();
   const current = getDashboardNavItem(pathname);
@@ -21,11 +21,14 @@ export default function DashboardHeader({
       <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm text-[var(--foreground-muted)]">
-            {current.eyebrow} · {user.name}
+            {user.agency ?? "Agency workspace"} · {current.eyebrow}
           </p>
           <h1 className="font-serif text-3xl tracking-[-0.04em] sm:text-4xl">
             {current.label}
           </h1>
+          <p className="mt-1 text-sm text-[var(--foreground-muted)]">
+            Signed in as {user.name}
+          </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
