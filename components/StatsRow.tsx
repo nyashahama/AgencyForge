@@ -1,50 +1,29 @@
 export default function StatsRow() {
+  const stats = [
+    ["Avg", "4.2h", "Brief to first campaign delivery"],
+    ["Lifetime", "3,400+", "Campaigns generated"],
+    ["Rate", "98%", "First-round client approval rate"],
+    ["Managed", "$2.1B", "Client billing under orchestration"],
+  ];
+
   return (
-    <div className="stats-row reveal">
-      <div className="stat-cell">
-        <div className="stat-tag">Avg</div>
-        <div className="stat-num">
-          4.2<sup>h</sup>
-        </div>
-        <div className="stat-label">
-          Brief to first
-          <br />
-          campaign delivery
-        </div>
+    <section className="px-4 py-8 sm:px-6">
+      <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-4">
+        {stats.map(([tag, value, label]) => (
+          <div
+            key={label}
+            className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-6"
+          >
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--foreground-soft)]">
+              {tag}
+            </p>
+            <p className="mt-4 font-serif text-5xl tracking-[-0.05em]">{value}</p>
+            <p className="mt-3 max-w-[14ch] text-sm leading-6 text-[var(--foreground-muted)]">
+              {label}
+            </p>
+          </div>
+        ))}
       </div>
-      <div className="stat-cell">
-        <div className="stat-tag">Lifetime</div>
-        <div className="stat-num">
-          3,400<sup>+</sup>
-        </div>
-        <div className="stat-label">
-          Campaigns
-          <br />
-          generated
-        </div>
-      </div>
-      <div className="stat-cell">
-        <div className="stat-tag">Rate</div>
-        <div className="stat-num">
-          98<sup>%</sup>
-        </div>
-        <div className="stat-label">
-          First-round client
-          <br />
-          approval rate
-        </div>
-      </div>
-      <div className="stat-cell">
-        <div className="stat-tag">Managed</div>
-        <div className="stat-num">
-          $2.1<sup>B</sup>
-        </div>
-        <div className="stat-label">
-          In client billing
-          <br />
-          across agencies
-        </div>
-      </div>
-    </div>
+    </section>
   );
 }

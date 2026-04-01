@@ -1,89 +1,43 @@
-"use client";
-
-type Datum = { day: string; campaigns: number };
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function ThroughputChart({
   throughput,
 }: {
-  throughput: Datum[];
+  throughput: { day: string; campaigns: number }[];
 }) {
-  const max = Math.max(...throughput.map((d) => d.campaigns));
-  const H = 64;
-  const BAR_W = 24;
-  const GAP = 10;
-  const total = throughput.reduce((s, d) => s + d.campaigns, 0);
+  const max = Math.max(...throughput.map((item) => item.campaigns));
 
   return (
-    <div className="db-card db-chart-card">
-      <div className="db-card-header">
-        <div>
-          <div className="db-card-eyebrow">This week</div>
-          <h2 className="db-card-title">Throughput</h2>
-        </div>
-        <div className="db-chart-meta">
-          <span className="db-chart-total">{total}</span>
-          <span className="db-chart-total-label">campaigns</span>
-        </div>
-      </div>
-
-      <div className="db-chart-area">
-        <svg
-          width="100%"
-          viewBox={`0 0 ${throughput.length * (BAR_W + GAP) - GAP} ${H + 24}`}
-          preserveAspectRatio="xMidYMid meet"
-        >
-          {throughput.map((d, i) => {
-            const barH = (d.campaigns / max) * H;
-            const x = i * (BAR_W + GAP);
-            const y = H - barH;
-            return (
-              <g key={d.day}>
-                {/* Track */}
-                <rect
-                  x={x}
-                  y={0}
-                  width={BAR_W}
-                  height={H}
-                  rx="3"
-                  fill="var(--faint2)"
-                  opacity="0.4"
+    <Card>
+      <CardHeader>
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--foreground-soft)]">
+          Throughput
+        </p>
+        <CardTitle>Weekly output</CardTitle>
+        <CardDescription>
+          Campaign package volume over the past seven days.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex h-56 items-end gap-3">
+          {throughput.map((item) => (
+            <div key={item.day} className="flex flex-1 flex-col items-center gap-3">
+              <div className="flex h-44 w-full items-end rounded-[20px] bg-[var(--surface-muted)] p-2">
+                <div
+                  className="w-full rounded-[14px] bg-[linear-gradient(180deg,var(--accent),#7c9b13)]"
+                  style={{ height: `${(item.campaigns / max) * 100}%` }}
                 />
-                {/* Fill */}
-                <rect
-                  x={x}
-                  y={y}
-                  width={BAR_W}
-                  height={barH}
-                  rx="3"
-                  fill="var(--accent)"
-                />
-                {/* Count */}
-                <text
-                  x={x + BAR_W / 2}
-                  y={y - 5}
-                  textAnchor="middle"
-                  fontSize="9"
-                  fill="var(--muted)"
-                  fontFamily="var(--mono)"
-                >
-                  {d.campaigns}
-                </text>
-                {/* Day label */}
-                <text
-                  x={x + BAR_W / 2}
-                  y={H + 16}
-                  textAnchor="middle"
-                  fontSize="9"
-                  fill="var(--muted)"
-                  fontFamily="var(--mono)"
-                >
-                  {d.day}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-    </div>
+              </div>
+              <div className="text-center">
+                <p className="font-medium">{item.campaigns}</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-[var(--foreground-soft)]">
+                  {item.day}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

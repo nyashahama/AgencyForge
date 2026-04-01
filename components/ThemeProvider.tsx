@@ -23,8 +23,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       (window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light");
-    setTheme(resolved);
     document.documentElement.setAttribute("data-theme", resolved);
+    const frame = window.requestAnimationFrame(() => {
+      setTheme(resolved);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const toggle = () => {

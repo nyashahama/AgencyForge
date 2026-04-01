@@ -1,59 +1,70 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
+import { cn } from "@/lib/utils";
+import { DASHBOARD_NAV_ITEMS, getDashboardNavItem } from "./navigation";
 
-export default function DashboardHeader({ user }: { user: { name: string } }) {
-  const hour = new Date().getHours();
-  const greeting =
-    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+export default function DashboardHeader({
+  user,
+}: {
+  user: { name: string; agency?: string };
+}) {
+  const pathname = usePathname();
+  const current = getDashboardNavItem(pathname);
 
   return (
-    <div className="db-topbar">
-      <div className="db-topbar-left">
-        <p className="db-greeting">
-          {greeting}, {user.name.split(" ")[0]}.
-        </p>
-        <p className="db-greeting-sub">You have 2 campaigns pending review.</p>
-      </div>
-      <div className="db-topbar-right">
-        <ThemeToggle />
-        <div className="db-search">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <circle
-              cx="5.5"
-              cy="5.5"
-              r="3.5"
-              stroke="currentColor"
-              strokeWidth="1.2"
-            />
-            <path
-              d="M8.5 8.5L11 11"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-            />
-          </svg>
-          <input placeholder="Search campaigns, clients…" />
+    <header className="border-b border-[var(--border)]">
+      <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-sm text-[var(--foreground-muted)]">
+            {user.agency ?? "Agency workspace"} · {current.eyebrow}
+          </p>
+          <h1 className="font-serif text-3xl tracking-[-0.04em] sm:text-4xl">
+            {current.label}
+          </h1>
+          <p className="mt-1 text-sm text-[var(--foreground-muted)]">
+            Signed in as {user.name}
+          </p>
         </div>
-        <button className="db-upload-btn">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path
-              d="M6.5 9V1M6.5 1L3.5 4M6.5 1l3 3"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M1.5 10v1.5a1 1 0 001 1h8a1 1 0 001-1V10"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-            />
-          </svg>
-          Upload brief
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Input
+            placeholder={`Search ${current.short.toLowerCase()}, clients, deliverables...`}
+            className="sm:w-72"
+          />
+          <ThemeToggle />
+          <Button variant="accent" className="rounded-full">
+            Upload brief
+          </Button>
+        </div>
       </div>
-    </div>
+      <div className="overflow-x-auto px-4 pb-4 sm:px-6">
+        <nav className="flex min-w-max gap-2">
+          {DASHBOARD_NAV_ITEMS.map((item) => {
+            const active =
+              pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "rounded-full border px-4 py-2 text-sm transition",
+                  active
+                    ? "border-[var(--border-strong)] bg-[var(--foreground)] text-[var(--background)]"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground-muted)] hover:text-[var(--foreground)]",
+                )}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+    </header>
   );
 }
