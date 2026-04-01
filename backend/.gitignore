@@ -1,0 +1,5 @@
+.env
+bin/
+coverage.out
+db/gen/*
+!db/gen/.gitkeep
