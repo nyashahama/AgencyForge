@@ -1,5 +1,6 @@
 .env
 bin/
+server
 coverage.out
 db/gen/*
 !db/gen/.gitkeep
