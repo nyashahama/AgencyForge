@@ -10,6 +10,7 @@ export default function CampaignsPage() {
         eyebrow="Campaigns"
         title="Execution board"
         description="Track live work by client, review status, and delivery readiness."
+        tone="from-fuchsia-400/20 to-transparent"
       />
       <div className="grid gap-4 lg:grid-cols-2">
         {CAMPAIGNS.map((campaign) => (

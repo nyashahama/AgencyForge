@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/BrandMark";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { DASHBOARD_NAV_ITEMS } from "./navigation";
 
 type User = {
   name: string;
@@ -28,16 +29,6 @@ export default function DashboardSidebar({
   agents: Agent[];
 }) {
   const pathname = usePathname();
-  const items = [
-    ["/dashboard", "Overview"],
-    ["/dashboard/briefs", "Briefs"],
-    ["/dashboard/campaigns", "Campaigns"],
-    ["/dashboard/analytics", "Analytics"],
-    ["/dashboard/clients", "Clients"],
-    ["/dashboard/portal", "Portal"],
-    ["/dashboard/docs", "Docs"],
-    ["/dashboard/settings", "Settings"],
-  ];
 
   return (
     <aside className="hidden w-[280px] shrink-0 rounded-[32px] border border-[var(--border)] bg-[var(--surface-strong)] p-5 text-[var(--card-strong-foreground)] xl:block">
@@ -54,23 +45,29 @@ export default function DashboardSidebar({
       </Badge>
 
       <nav className="mt-8 space-y-1">
-        {items.map(([href, label]) => {
+        {DASHBOARD_NAV_ITEMS.map((item) => {
           const active =
-            pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
           return (
             <Link
-              key={href}
-              href={href}
+              key={item.href}
+              href={item.href}
               className={cn(
                 "flex items-center justify-between rounded-2xl px-4 py-3 text-sm transition",
                 active
-                  ? "bg-white/10 text-white"
+                  ? "bg-white text-[var(--card-strong)] shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
                   : "text-white/60 hover:bg-white/6 hover:text-white",
               )}
             >
-              <span>{label}</span>
-              {href === "/dashboard/briefs" ? (
+              <div>
+                <p className="font-medium">{item.label}</p>
+                <p className={cn("text-[11px]", active ? "text-[var(--card-strong)]/55" : "text-white/35")}>
+                  {item.eyebrow}
+                </p>
+              </div>
+              {item.href === "/dashboard/briefs" ? (
                 <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-foreground)]">
                   New
                 </span>

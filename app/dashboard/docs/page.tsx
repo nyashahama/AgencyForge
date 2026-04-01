@@ -9,6 +9,7 @@ export default function DocsPage() {
         eyebrow="Docs"
         title="System playbooks"
         description="Operational guidance for intake, approvals, legal checks, and team workflows."
+        tone="from-violet-300/20 to-transparent"
       />
       <div className="grid gap-4 lg:grid-cols-3">
         {["Client onboarding", "Revision policy", "Legal review", "Media planning rubric", "Portal handoff", "Reporting cadence"].map((item) => (

@@ -11,6 +11,7 @@ export default function AnalyticsPage() {
         eyebrow="Analytics"
         title="Delivery analytics"
         description="Top-level throughput and performance signals for the operating model."
+        tone="from-amber-300/25 to-transparent"
       />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <ThroughputChart throughput={THROUGHPUT} />

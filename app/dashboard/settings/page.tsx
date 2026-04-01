@@ -9,6 +9,7 @@ export default function SettingsPage() {
         eyebrow="Settings"
         title="Workspace controls"
         description="Configure brand defaults, notifications, and governance for the team."
+        tone="from-rose-300/20 to-transparent"
       />
       <div className="grid gap-4 lg:grid-cols-3">
         {["Brand tokens", "Notification rules", "Team permissions"].map((item) => (

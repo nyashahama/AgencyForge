@@ -9,6 +9,7 @@ export default function PortalPage() {
         eyebrow="Portal"
         title="White-label delivery"
         description="Manage branded workspaces, review flow, and client-facing presentation quality."
+        tone="from-emerald-300/20 to-transparent"
       />
       <Card>
         <CardHeader>

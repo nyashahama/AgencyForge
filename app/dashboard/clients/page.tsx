@@ -15,6 +15,7 @@ export default function ClientsPage() {
         eyebrow="Clients"
         title="Client accounts"
         description="A concise view of active relationships, package status, and open approvals."
+        tone="from-cyan-300/20 to-transparent"
       />
       <div className="grid gap-4 lg:grid-cols-3">
         {clients.map(([name, status, note]) => (

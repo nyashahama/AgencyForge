@@ -22,6 +22,7 @@ export default function BriefsPage() {
         eyebrow="Input queue"
         title="Brief intake"
         description="Collect source material, validate intake, and hand work directly into the delivery pipeline."
+        tone="from-sky-400/20 to-transparent"
       />
       <div className="space-y-6">
         <div

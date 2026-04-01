@@ -19,6 +19,7 @@ export default function Dashboard() {
         eyebrow="Operations"
         title="Delivery overview"
         description="A unified view of briefs, campaign assembly, agent utilization, and client-facing activity."
+        tone="from-lime-300/25 to-transparent"
       />
       <div className="space-y-6">
         <StatsBar stats={STATS} />
