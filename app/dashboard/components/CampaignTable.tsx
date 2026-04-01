@@ -9,10 +9,14 @@ export default function CampaignTable({
   campaigns,
   filter,
   setFilter,
+  onSelectCampaign,
+  onAdvanceCampaign,
 }: {
   campaigns: Campaign[];
   filter: string;
   setFilter: (value: string) => void;
+  onSelectCampaign: (campaign: Campaign) => void;
+  onAdvanceCampaign: (campaignId: string) => void;
 }) {
   const filters = ["all", "review", "generating", "approved"];
   const visible =
@@ -73,6 +77,24 @@ export default function CampaignTable({
                         <p className="text-[var(--foreground-muted)]">
                           {campaign.client}
                         </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="subtle"
+                            onClick={() => onSelectCampaign(campaign)}
+                          >
+                            Open
+                          </Button>
+                          {campaign.status !== "approved" ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onAdvanceCampaign(campaign.id)}
+                            >
+                              Advance
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </td>

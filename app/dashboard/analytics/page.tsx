@@ -1,11 +1,22 @@
+"use client";
+
+import { useState } from "react";
 import DashboardShell from "../components/DashboardShell";
 import DashboardPageIntro from "../components/DashboardPageIntro";
 import DashboardKpiGrid from "../components/DashboardKpiGrid";
 import ThroughputChart from "../components/ThroughputChart";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AGENTS, CAMPAIGNS, THROUGHPUT } from "../components/data";
+import { useMockDashboard } from "../components/mock-state";
 
 export default function AnalyticsPage() {
+  const { agents, campaigns, throughput, simulateAnalytics } = useMockDashboard();
+  const [mode, setMode] = useState<"throughput" | "utilization">("throughput");
+  const chartData =
+    mode === "throughput"
+      ? throughput
+      : agents.slice(0, 7).map((agent) => ({ day: agent.name.slice(0, 3), campaigns: agent.load }));
+
   return (
     <DashboardShell>
       <DashboardPageIntro
@@ -19,17 +30,17 @@ export default function AnalyticsPage() {
           items={[
             {
               label: "Weekly output",
-              value: `${THROUGHPUT.reduce((sum, item) => sum + item.campaigns, 0)}`,
+              value: `${throughput.reduce((sum, item) => sum + item.campaigns, 0)}`,
               note: "Campaign packages produced across the last seven days",
             },
             {
               label: "Avg. completion",
-              value: `${Math.round(CAMPAIGNS.reduce((sum, campaign) => sum + campaign.progress, 0) / CAMPAIGNS.length)}%`,
+              value: `${Math.round(campaigns.reduce((sum, campaign) => sum + campaign.progress, 0) / campaigns.length)}%`,
               note: "Mean progress across active and approved campaigns",
             },
             {
               label: "Active specialists",
-              value: `${AGENTS.filter((agent) => agent.status === "active").length}`,
+              value: `${agents.filter((agent) => agent.status === "active").length}`,
               note: "Parallel specialist lanes currently live",
             },
             {
@@ -40,7 +51,28 @@ export default function AnalyticsPage() {
           ]}
         />
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <ThroughputChart throughput={THROUGHPUT} />
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={mode === "throughput" ? "default" : "ghost"}
+                onClick={() => setMode("throughput")}
+              >
+                Throughput
+              </Button>
+              <Button
+                size="sm"
+                variant={mode === "utilization" ? "default" : "ghost"}
+                onClick={() => setMode("utilization")}
+              >
+                Utilization
+              </Button>
+              <Button size="sm" variant="accent" onClick={simulateAnalytics}>
+                Refresh forecast
+              </Button>
+            </div>
+            <ThroughputChart throughput={chartData} />
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>Observed trends</CardTitle>
@@ -53,10 +85,16 @@ export default function AnalyticsPage() {
                 Approval latency decreased by 18% week over week.
               </div>
               <div className="rounded-[22px] border border-[var(--border)] p-4">
-                Copy and design remain the highest-utilization specialists.
+                {agents
+                  .slice()
+                  .sort((a, b) => b.load - a.load)
+                  .slice(0, 2)
+                  .map((agent) => agent.name)
+                  .join(" and ")}{" "}
+                remain the highest-utilization specialists.
               </div>
               <div className="rounded-[22px] border border-[var(--border)] p-4">
-                Same-day delivery is now the default for mid-size briefs.
+                Same-day delivery is now the default for {campaigns.filter((campaign) => campaign.progress > 70).length} campaigns.
               </div>
             </CardContent>
           </Card>
