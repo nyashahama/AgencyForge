@@ -1,0 +1,72 @@
+name: Backend
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Run unit tests
+        run: go test ./... -count=1
+
+      - name: Build server
+        run: go build ./cmd/server
+
+  integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: agencyforge
+          POSTGRES_PASSWORD: agencyforge
+          POSTGRES_DB: agencyforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agencyforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable
+      JWT_SECRET: 01234567890123456789012345678901
+      APP_BASE_URL: http://localhost:3000
+      ALLOWED_ORIGINS: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Run integration tests
+        run: go test ./tests/integration/... -tags=integration -count=1 -v

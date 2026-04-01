@@ -1,0 +1,102 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"strings"
+	"time"
+)
+
+type Config struct {
+	Port           string
+	Env            string
+	DatabaseURL    string
+	JWTSecret      string
+	AllowedOrigins []string
+	JWTExpiry      time.Duration
+	RefreshExpiry  time.Duration
+	AppBaseURL     string
+}
+
+func Load() (*Config, error) {
+	cfg := &Config{
+		Port:        getEnv("PORT", "8080"),
+		Env:         getEnv("ENV", "development"),
+		DatabaseURL: os.Getenv("DATABASE_URL"),
+		JWTSecret:   os.Getenv("JWT_SECRET"),
+		AppBaseURL:  getEnv("APP_BASE_URL", "http://localhost:3000"),
+	}
+
+	var err error
+	cfg.JWTExpiry, err = parseDuration("JWT_EXPIRY", 15*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.RefreshExpiry, err = parseDuration("REFRESH_EXPIRY", 168*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	origins := os.Getenv("ALLOWED_ORIGINS")
+	if origins == "" {
+		cfg.AllowedOrigins = []string{cfg.AppBaseURL}
+	} else {
+		cfg.AllowedOrigins = strings.Split(origins, ",")
+		for i := range cfg.AllowedOrigins {
+			cfg.AllowedOrigins[i] = strings.TrimSpace(cfg.AllowedOrigins[i])
+		}
+	}
+
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+func (c *Config) validate() error {
+	required := map[string]string{
+		"DATABASE_URL": c.DatabaseURL,
+		"JWT_SECRET":   c.JWTSecret,
+		"APP_BASE_URL": c.AppBaseURL,
+	}
+
+	var missing []string
+	for name, value := range required {
+		if value == "" {
+			missing = append(missing, name)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
+	}
+
+	if len(c.JWTSecret) < 32 {
+		return fmt.Errorf("JWT_SECRET must be at least 32 characters long")
+	}
+
+	return nil
+}
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func parseDuration(key string, fallback time.Duration) (time.Duration, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback, nil
+	}
+
+	duration, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration for %s: %w", key, err)
+	}
+
+	return duration, nil
+}
