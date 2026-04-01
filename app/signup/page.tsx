@@ -30,9 +30,9 @@ export default function SignupPage() {
 
   const shake = (el: HTMLInputElement | null) => {
     if (!el) return;
-    el.classList.remove("shake");
+    el.classList.remove("animate-[shake_0.35s_ease-in-out]");
     void el.offsetWidth;
-    el.classList.add("shake");
+    el.classList.add("animate-[shake_0.35s_ease-in-out]");
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -92,6 +92,7 @@ export default function SignupPage() {
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Alex Chen"
                 autoComplete="name"
+                className="data-[shake=true]:animate-[shake_0.35s_ease-in-out]"
               />
             </div>
             <div>
@@ -106,6 +107,7 @@ export default function SignupPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@agency.com"
                 autoComplete="email"
+                className="data-[shake=true]:animate-[shake_0.35s_ease-in-out]"
               />
             </div>
             <div>
@@ -120,6 +122,7 @@ export default function SignupPage() {
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Minimum 8 characters"
                 autoComplete="new-password"
+                className="data-[shake=true]:animate-[shake_0.35s_ease-in-out]"
               />
               <div className="mt-3 flex gap-2">
                 {[1, 2, 3, 4].map((segment) => (

@@ -15,7 +15,14 @@ export default function AuthShowcase({
 }) {
   return (
     <div className="relative hidden overflow-hidden rounded-[36px] border border-[var(--accent-border)] bg-[linear-gradient(160deg,rgba(215,255,70,0.18),rgba(20,24,28,0.96))] p-8 text-white lg:flex lg:flex-col">
-      <div className="noise absolute inset-0 opacity-10" />
+      <div
+        className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(255,255,255,0.12) 0.8px, transparent 0.8px)",
+          backgroundSize: "16px 16px",
+        }}
+      />
       <div className="relative">
         <Link href="/" className="flex items-center gap-3">
           <BrandMark />

@@ -18,9 +18,9 @@ export default function LoginPage() {
 
   const shake = (el: HTMLInputElement | null) => {
     if (!el) return;
-    el.classList.remove("shake");
+    el.classList.remove("animate-[shake_0.35s_ease-in-out]");
     void el.offsetWidth;
-    el.classList.add("shake");
+    el.classList.add("animate-[shake_0.35s_ease-in-out]");
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -76,6 +76,7 @@ export default function LoginPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@agency.com"
                 autoComplete="email"
+                className="data-[shake=true]:animate-[shake_0.35s_ease-in-out]"
               />
             </div>
             <div>
@@ -90,6 +91,7 @@ export default function LoginPage() {
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="••••••••"
                 autoComplete="current-password"
+                className="data-[shake=true]:animate-[shake_0.35s_ease-in-out]"
               />
             </div>
             {error ? (

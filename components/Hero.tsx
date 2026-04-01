@@ -12,8 +12,22 @@ export default function Hero() {
 
   return (
     <section className="relative overflow-hidden px-4 pb-16 pt-8 sm:px-6 sm:pb-24">
-      <div className="noise pointer-events-none absolute inset-0" />
-      <div className="panel-grid pointer-events-none absolute inset-x-0 top-0 h-[42rem] opacity-40" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.18]"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(16,17,19,0.08) 0.8px, transparent 0.8px)",
+          backgroundSize: "16px 16px",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-[42rem] opacity-40"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px)",
+          backgroundSize: "72px 72px",
+        }}
+      />
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
         <div className="relative z-10 space-y-8 pt-8 sm:pt-16">
           <Badge variant="accent" className="w-fit">
@@ -21,7 +35,9 @@ export default function Hero() {
             Beta access open
           </Badge>
           <div className="space-y-6">
-            <h1 className="font-serif text-6xl leading-none tracking-[-0.06em] text-gradient sm:text-7xl lg:text-[7.5rem]">
+            <h1
+              className="font-serif bg-[linear-gradient(135deg,var(--foreground)_10%,rgba(16,17,19,0.56)_95%)] bg-clip-text text-6xl leading-none tracking-[-0.06em] text-transparent sm:text-7xl lg:text-[7.5rem] dark:bg-[linear-gradient(135deg,#fafaf9_10%,rgba(250,250,249,0.58)_95%)]"
+            >
               The agency
               <br />
               that runs itself.
