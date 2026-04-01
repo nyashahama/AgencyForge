@@ -1,76 +1,63 @@
 export default function Testimonials() {
+  const testimonials = [
+    {
+      quote:
+        "We delivered three client launches in one week without adding headcount. The biggest win was how coherent every deliverable felt.",
+      name: "Sarah R.",
+      role: "Creative Director, Meld Studio",
+    },
+    {
+      quote:
+        "The white-label portal changed the way clients perceive the work. It feels like a premium operating system, not a chat transcript.",
+      name: "Daniel M.",
+      role: "Founder, Northline Agency",
+    },
+    {
+      quote:
+        "Copy, media, and legal are finally moving off the same brief. That removed the rework we used to accept as normal.",
+      name: "Tobi K.",
+      role: "Strategy Lead, Halo & Co.",
+    },
+  ];
+
   return (
-    <section className="sec">
-      <div className="container">
-        <div className="sec-head reveal">
-          <div>
-            <div className="sec-label">In their words</div>
-            <h2 className="sec-h2">
-              Agencies that
-              <br />
-              <i>changed how they work.</i>
-            </h2>
-          </div>
+    <section className="px-4 py-16 sm:px-6 sm:py-24">
+      <div className="mx-auto max-w-7xl">
+        <div className="max-w-2xl">
+          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--foreground-soft)]">
+            In their words
+          </p>
+          <h2 className="mt-4 font-serif text-5xl leading-none tracking-[-0.05em] sm:text-6xl">
+            Agencies that changed
+            <br />
+            how they work.
+          </h2>
         </div>
-        <div className="testi-grid reveal">
-          <div className="testi">
-            <p className="testi-q">
-              "We used to spend three weeks on creative development. AgencyForge
-              gets us to first-review <i>in under four hours.</i> We've taken on
-              six new retainer clients without a single hire."
-            </p>
-            <div className="testi-who">
-              <div className="testi-av">JK</div>
-              <div>
-                <div className="testi-name">Jamie Kovacs</div>
-                <div className="testi-role">Founder, Voltage Creative</div>
-              </div>
-            </div>
-          </div>
-          <div className="testi">
-            <p className="testi-q">
-              "The legal docs come out clean on the first pass.{" "}
-              <i>That alone saves us $4k a month</i> in outside counsel — before
-              we even count the production time saved."
-            </p>
-            <div className="testi-who">
-              <div className="testi-av">MR</div>
-              <div>
-                <div className="testi-name">Marcus Reid</div>
-                <div className="testi-role">COO, Meridian Agency</div>
-              </div>
-            </div>
-          </div>
-          <div className="testi">
-            <p className="testi-q">
-              "Our creatives now spend time on the 10% that actually needs a
-              human — <i>strategy and relationships.</i> Every executional task
-              is Forge now."
-            </p>
-            <div className="testi-who">
-              <div className="testi-av">SL</div>
-              <div>
-                <div className="testi-name">Sophia Lund</div>
-                <div className="testi-role">
-                  Creative Director, Neon & Stone
+        <div className="mt-10 grid gap-4 lg:grid-cols-3">
+          {testimonials.map((item) => (
+            <div
+              key={item.name}
+              className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-6"
+            >
+              <p className="text-lg leading-8 tracking-[-0.02em] text-[var(--foreground)]">
+                &quot;{item.quote}&quot;
+              </p>
+              <div className="mt-8 flex items-center gap-4">
+                <div className="grid size-12 place-items-center rounded-full bg-[var(--card-strong)] font-mono text-sm text-[var(--accent)]">
+                  {item.name
+                    .split(" ")
+                    .map((part) => part[0])
+                    .join("")}
+                </div>
+                <div>
+                  <p className="font-medium">{item.name}</p>
+                  <p className="text-sm text-[var(--foreground-muted)]">
+                    {item.role}
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
-          <div className="testi">
-            <p className="testi-q">
-              "We tripled our client roster in five months without adding
-              headcount. <i>The client portal closed three deals on its own</i>{" "}
-              — they just want that experience."
-            </p>
-            <div className="testi-who">
-              <div className="testi-av">DK</div>
-              <div>
-                <div className="testi-name">Dev Kapoor</div>
-                <div className="testi-role">Managing Partner, Fieldwork</div>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>

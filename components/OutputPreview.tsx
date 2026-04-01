@@ -1,112 +1,55 @@
 export default function OutputPreview() {
+  const outputs = [
+    ["Campaign Copy Suite", "24 ranked variants across paid, social, and email", "Ready for review"],
+    ["Visual Direction Brief", "Moodboards, palette rationale, and typography direction", "Ready for review"],
+    ["Media Plan", "Allocation, reach assumptions, and pacing model", "Ready for review"],
+    ["Legal Documents", "Rights, NDAs, and compliance flags", "Pending legal review"],
+    ["Performance Forecast", "Projected CTR, ROAS ranges, and benchmark comparison", "Ready for review"],
+    ["Client Presentation", "Narrative deck with strategy, creative, and investment summary", "Ready for review"],
+  ];
+
   return (
-    <section className="sec" id="output">
-      <div className="container">
-        <div className="sec-head reveal">
+    <section id="output" className="px-4 py-16 sm:px-6 sm:py-24">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="sec-label">Deliverables</div>
-            <h2 className="sec-h2">
+            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--foreground-soft)]">
+              Deliverables
+            </p>
+            <h2 className="mt-4 font-serif text-5xl leading-none tracking-[-0.05em] sm:text-6xl">
               What ships
               <br />
-              <i>with every brief.</i>
+              with every brief.
             </h2>
           </div>
-          <p className="sec-note">
-            A complete, client-ready package — not drafts. Every output is
-            structured for immediate review and sign-off.
+          <p className="max-w-2xl text-base leading-8 text-[var(--foreground-muted)] sm:text-lg">
+            Not loose drafts. Each run packages assets into a review-ready set
+            with ownership, status, and a handoff path for the client team.
           </p>
         </div>
-        <div className="output-grid reveal">
-          <div className="output-card">
-            <div className="output-type">Output 01</div>
-            <div className="output-title">Campaign Copy Suite</div>
-            <div className="output-sub">
-              24 headline variants, 8 body copy directions, taglines, social
-              captions, and email subject lines — all channel-adapted.
+        <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {outputs.map(([title, copy, status], index) => (
+            <div
+              key={title}
+              className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-6"
+            >
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--foreground-soft)]">
+                Output {String(index + 1).padStart(2, "0")}
+              </p>
+              <h3 className="mt-5 text-xl font-semibold tracking-[-0.03em]">
+                {title}
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-[var(--foreground-muted)]">
+                {copy}
+              </p>
+              <div className="mt-6 flex items-center justify-between border-t border-[var(--border)] pt-4 text-sm">
+                <span className="text-[var(--foreground)]">{status}</span>
+                <span className="font-mono uppercase tracking-[0.2em] text-[var(--foreground-soft)]">
+                  ~{12 - index} min
+                </span>
+              </div>
             </div>
-            <div className="output-meta">
-              <span className="output-status">
-                <span className="status-dot s-green"></span>
-                <span style={{ color: "#15803d" }}>Ready for review</span>
-              </span>
-              <span className="output-time">~12 min</span>
-            </div>
-          </div>
-          <div className="output-card">
-            <div className="output-type">Output 02</div>
-            <div className="output-title">Visual Direction Brief</div>
-            <div className="output-sub">
-              Moodboard references, color palette rationale, typography
-              direction, and art direction notes for production partners.
-            </div>
-            <div className="output-meta">
-              <span className="output-status">
-                <span className="status-dot s-green"></span>
-                <span style={{ color: "#15803d" }}>Ready for review</span>
-              </span>
-              <span className="output-time">~8 min</span>
-            </div>
-          </div>
-          <div className="output-card">
-            <div className="output-type">Output 03</div>
-            <div className="output-title">Media Plan</div>
-            <div className="output-sub">
-              Channel allocation, estimated CPMs, reach and frequency
-              projections, flight dates, and budget breakdown by platform.
-            </div>
-            <div className="output-meta">
-              <span className="output-status">
-                <span className="status-dot s-green"></span>
-                <span style={{ color: "#15803d" }}>Ready for review</span>
-              </span>
-              <span className="output-time">~6 min</span>
-            </div>
-          </div>
-          <div className="output-card">
-            <div className="output-type">Output 04</div>
-            <div className="output-title">Legal Documents</div>
-            <div className="output-sub">
-              NDA, talent and usage rights agreements, platform-specific
-              compliance checklist, and regulatory flagging report.
-            </div>
-            <div className="output-meta">
-              <span className="output-status">
-                <span className="status-dot s-yellow"></span>
-                <span style={{ color: "#92400e" }}>Pending legal review</span>
-              </span>
-              <span className="output-time">~4 min</span>
-            </div>
-          </div>
-          <div className="output-card">
-            <div className="output-type">Output 05</div>
-            <div className="output-title">Performance Forecast</div>
-            <div className="output-sub">
-              Projected CTR, conversion ranges, estimated ROAS by channel, and
-              benchmark comparisons from similar campaign categories.
-            </div>
-            <div className="output-meta">
-              <span className="output-status">
-                <span className="status-dot s-green"></span>
-                <span style={{ color: "#15803d" }}>Ready for review</span>
-              </span>
-              <span className="output-time">~5 min</span>
-            </div>
-          </div>
-          <div className="output-card">
-            <div className="output-type">Output 06</div>
-            <div className="output-title">Client Presentation</div>
-            <div className="output-sub">
-              Structured deck combining all outputs: strategy rationale,
-              creative direction, media plan, timeline, and investment summary.
-            </div>
-            <div className="output-meta">
-              <span className="output-status">
-                <span className="status-dot s-green"></span>
-                <span style={{ color: "#15803d" }}>Ready for review</span>
-              </span>
-              <span className="output-time">~3 min</span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>

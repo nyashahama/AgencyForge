@@ -2,9 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandMark } from "@/components/BrandMark";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-type Agent = { name: string; status: string; load: number };
-type User = { name: string; initials: string; agency: string; plan: string };
+type User = {
+  name: string;
+  initials: string;
+  role: string;
+  agency: string;
+  plan: string;
+};
+
+type Agent = {
+  name: string;
+  status: string;
+  load: number;
+};
 
 export default function DashboardSidebar({
   user,
@@ -14,162 +28,79 @@ export default function DashboardSidebar({
   agents: Agent[];
 }) {
   const pathname = usePathname();
-
-  const NAV = [
-    { id: "overview", label: "Overview", href: "/dashboard", icon: IconGrid },
-    { id: "campaigns", label: "Campaigns", href: "/dashboard/campaigns", icon: IconCampaign },
-    { id: "clients", label: "Clients", href: "/dashboard/clients", icon: IconClients },
-    { id: "briefs", label: "Briefs", href: "/dashboard/briefs", icon: IconBriefs },
-    { id: "portal", label: "Client Portal", href: "/dashboard/portal", icon: IconPortal },
-    { id: "analytics", label: "Analytics", href: "/dashboard/analytics", icon: IconAnalytics },
+  const items = [
+    ["/dashboard", "Overview"],
+    ["/dashboard/briefs", "Briefs"],
+    ["/dashboard/campaigns", "Campaigns"],
+    ["/dashboard/analytics", "Analytics"],
+    ["/dashboard/clients", "Clients"],
+    ["/dashboard/portal", "Portal"],
+    ["/dashboard/docs", "Docs"],
+    ["/dashboard/settings", "Settings"],
   ];
-
-  const BOTTOM = [
-    { id: "settings", label: "Settings", href: "/dashboard/settings", icon: IconSettings },
-    { id: "docs", label: "Docs", href: "/dashboard/docs", icon: IconDocs },
-  ];
-
-  const activeAgents = agents.filter((a: Agent) => a.status === "active").length;
-
-  const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
   return (
-    <aside className="db-sidebar">
-      {/* Logo */}
-      <Link href="/">
-        <div className="db-sidebar-logo">
-          <div className="db-logo-mark">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M6 1L11 4.5V7.5L6 11L1 7.5V4.5L6 1Z" fill="#c8ff00" />
-            </svg>
-          </div>
-          <span>AgencyForge</span>
+    <aside className="hidden w-[280px] shrink-0 rounded-[32px] border border-[var(--border)] bg-[var(--surface-strong)] p-5 text-[var(--card-strong-foreground)] xl:block">
+      <Link href="/" className="flex items-center gap-3">
+        <BrandMark />
+        <div>
+          <p className="text-sm font-semibold tracking-[-0.03em]">AgencyForge</p>
+          <p className="text-xs text-white/55">{user.agency}</p>
         </div>
       </Link>
 
-      {/* Agent pulse */}
-      <div className="db-agent-pill">
-        <span className="db-agent-dot" />
-        <span>{activeAgents} agents running</span>
+      <Badge variant="accent" className="mt-6 w-fit bg-white/8 text-[var(--accent)]">
+        {agents.filter((agent) => agent.status === "active").length} active agents
+      </Badge>
+
+      <nav className="mt-8 space-y-1">
+        {items.map(([href, label]) => {
+          const active =
+            pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex items-center justify-between rounded-2xl px-4 py-3 text-sm transition",
+                active
+                  ? "bg-white/10 text-white"
+                  : "text-white/60 hover:bg-white/6 hover:text-white",
+              )}
+            >
+              <span>{label}</span>
+              {href === "/dashboard/briefs" ? (
+                <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-foreground)]">
+                  New
+                </span>
+              ) : null}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="mt-8 rounded-[24px] border border-white/8 bg-white/5 p-4">
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-white/45">
+          Current plan
+        </p>
+        <p className="mt-3 text-xl font-semibold">{user.plan}</p>
+        <p className="mt-2 text-sm leading-6 text-white/60">
+          Throughput tuned for multi-client delivery with white-label sharing.
+        </p>
       </div>
 
-      {/* Primary nav */}
-      <nav className="db-nav">
-        {NAV.map(({ id, label, href, icon: Icon }) => (
-          <Link
-            key={id}
-            href={href}
-            className={`db-nav-item ${isActive(href) ? "active" : ""}`}
-          >
-            <Icon />
-            <span>{label}</span>
-            {id === "campaigns" && <span className="db-nav-badge">24</span>}
-          </Link>
-        ))}
-      </nav>
-
-      <div className="db-nav-divider" />
-
-      {/* Bottom nav */}
-      <nav className="db-nav db-nav-bottom">
-        {BOTTOM.map(({ id, label, href, icon: Icon }) => (
-          <Link
-            key={id}
-            href={href}
-            className={`db-nav-item ${isActive(href) ? "active" : ""}`}
-          >
-            <Icon />
-            <span>{label}</span>
-          </Link>
-        ))}
-      </nav>
-
-      {/* User */}
-      <div className="db-sidebar-user">
-        <div className="db-user-av">{user.initials}</div>
-        <div className="db-user-info">
-          <div className="db-user-name">{user.name}</div>
-          <div className="db-user-role">
-            {user.agency} · {user.plan}
+      <div className="mt-8 border-t border-white/8 pt-5">
+        <div className="flex items-center gap-3">
+          <div className="grid size-11 place-items-center rounded-full bg-[var(--accent)] font-mono text-sm text-[var(--accent-foreground)]">
+            {user.initials}
+          </div>
+          <div>
+            <p className="text-sm font-medium">{user.name}</p>
+            <p className="text-xs text-white/50">{user.role}</p>
           </div>
         </div>
-        <button className="db-user-menu">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="7" cy="3.5" r="1" fill="currentColor" />
-            <circle cx="7" cy="7" r="1" fill="currentColor" />
-            <circle cx="7" cy="10.5" r="1" fill="currentColor" />
-          </svg>
-        </button>
       </div>
     </aside>
-  );
-}
-
-// ── Icons ──
-function IconGrid() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <rect x="1.5" y="1.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.1" />
-      <rect x="8.5" y="1.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.1" />
-      <rect x="1.5" y="8.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.1" />
-      <rect x="8.5" y="8.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.1" />
-    </svg>
-  );
-}
-function IconCampaign() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <path d="M2 11l3.5-4.5 3 3 2-2.5 2.5 4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function IconClients() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <circle cx="5.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.1" />
-      <path d="M1 13c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-      <path d="M10 4.5c1.4 0 2.5 1 2.5 2.5C12.5 9 11 10 10 10" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-      <path d="M10.5 11c1.5.3 2.5 1.5 2.5 3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconBriefs() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <rect x="2.5" y="1.5" width="10" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.1" />
-      <path d="M5 5.5h5M5 8h5M5 10.5h3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconPortal() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <rect x="1.5" y="1.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.1" />
-      <path d="M5 13.5h5M7.5 10.5v3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconAnalytics() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <path d="M2 12l3-4 2.5 2.5L10 6l3 3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function IconSettings() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <circle cx="7.5" cy="7.5" r="2" stroke="currentColor" strokeWidth="1.1" />
-      <path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M3.04 3.04l1.06 1.06M10.9 10.9l1.06 1.06M10.9 4.1l1.06-1.06M3.04 11.96l1.06-1.06" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconDocs() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.1" />
-      <path d="M7.5 5v3.5M7.5 10.5v.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-    </svg>
   );
 }

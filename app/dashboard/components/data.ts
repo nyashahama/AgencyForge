@@ -1,5 +1,3 @@
-"use client";
-
 export const USER = {
   name: "Sophia Lund",
   initials: "SL",

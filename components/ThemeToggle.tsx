@@ -1,14 +1,17 @@
 "use client";
 
 import { useTheme } from "./ThemeProvider";
+import { Button } from "@/components/ui/button";
 
 export default function ThemeToggle() {
   const { theme, toggle } = useTheme();
 
   return (
-    <button
+    <Button
       onClick={toggle}
-      className="btn-sm btn-ghost-sm theme-toggle"
+      variant="ghost"
+      size="icon"
+      className="rounded-full border border-[var(--border)] bg-[var(--surface)]"
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       title={theme === "dark" ? "Light mode" : "Dark mode"}
     >
@@ -35,6 +38,6 @@ export default function ThemeToggle() {
           />
         </svg>
       )}
-    </button>
+    </Button>
   );
 }

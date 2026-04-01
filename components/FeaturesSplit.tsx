@@ -1,169 +1,60 @@
 export default function FeaturesSplit() {
+  const capabilities = [
+    ["Design Direction", "Moodboards, style guides, and visual systems"],
+    ["Media Planning", "Channel mix, reach modeling, and pacing"],
+    ["Budget Optimization", "Investment allocation with ROI tradeoffs"],
+    ["Legal Documents", "Usage rights, NDAs, and compliance checks"],
+    ["Client Portal", "White-label delivery and approval workflows"],
+  ];
+
   return (
-    <section className="sec" id="features">
-      <div className="container">
-        <div className="sec-head reveal">
-          <div>
-            <div className="sec-label">Platform</div>
-            <h2 className="sec-h2">
-              Everything your
-              <br />
-              <i>team doesn't have</i>
-              <br />
-              time to do.
-            </h2>
-          </div>
-          <p className="sec-note">
-            Six specialized agents running in parallel. Each one built for a
-            specific agency function — not a generic assistant.
+    <section id="features" className="px-4 py-16 sm:px-6 sm:py-24">
+      <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="rounded-[32px] border border-[var(--border)] bg-[var(--surface)] p-8 sm:p-10">
+          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--foreground-soft)]">
+            Platform
           </p>
+          <h2 className="mt-4 font-serif text-5xl leading-none tracking-[-0.05em] sm:text-6xl">
+            Everything your team
+            <br />
+            doesn&apos;t have time to do.
+          </h2>
+          <p className="mt-6 max-w-xl text-base leading-8 text-[var(--foreground-muted)] sm:text-lg">
+            AgencyForge is split into specialists, not a single generic agent.
+            That keeps deliverables consistent across copy, design, channel
+            planning, and client-facing operations.
+          </p>
+          <ul className="mt-10 space-y-4">
+            {[
+              "24 ranked copy variants per brief",
+              "Channel-aware outputs for paid, OOH, email, and social",
+              "Voice memory carried across campaigns",
+              "Localization, legal review, and portal delivery built in",
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-3 text-sm leading-7">
+                <span className="mt-2 size-2 rounded-full bg-[var(--accent)]" />
+                <span className="text-[var(--foreground-muted)]">{item}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <div className="feature-split reveal">
-          <div className="feat-left">
-            <div className="feat-tag">Copy + Content</div>
-            <h3 className="feat-h3">
-              On-brand copy,
-              <br />
-              <i>at scale.</i>
-            </h3>
-            <p className="feat-p">
-              The copy agent trains on your client's voice from their existing
-              materials, then generates ad copy, scripts, long-form content, and
-              email sequences — all in that voice, first draft.
-            </p>
-            <ul className="feat-list">
-              <li>24 variants per brief, ranked by predicted performance</li>
-              <li>Multi-channel: social, OOH, digital, broadcast, email</li>
-              <li>Brand voice memory across all campaigns</li>
-              <li>Localization and tone-switching built in</li>
-            </ul>
-          </div>
-          <div className="feat-right">
-            <div className="feat-row">
-              <div className="feat-row-left">
-                <div className="feat-row-icon">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <rect
-                      x="2"
-                      y="4"
-                      width="12"
-                      height="8"
-                      rx="1.5"
-                      stroke="#0e0e0e"
-                      strokeWidth="1.1"
-                    />
-                    <path
-                      d="M5 8h6M5 10.5h4"
-                      stroke="#0e0e0e"
-                      strokeWidth="1.1"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <div className="feat-row-title">Design Direction</div>
-                  <div className="feat-row-sub">
-                    Moodboards, style guides, art direction
-                  </div>
-                </div>
+        <div className="grid gap-4">
+          {capabilities.map(([title, copy], index) => (
+            <div
+              key={title}
+              className="flex items-center justify-between gap-4 rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-6"
+            >
+              <div>
+                <p className="text-lg font-semibold tracking-[-0.03em]">{title}</p>
+                <p className="mt-2 text-sm leading-7 text-[var(--foreground-muted)]">
+                  {copy}
+                </p>
               </div>
-              <span className="feat-row-badge">Agent 02</span>
+              <span className="shrink-0 rounded-full bg-[var(--surface-strong)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--accent)]">
+                Agent {String(index + 2).padStart(2, "0")}
+              </span>
             </div>
-            <div className="feat-row">
-              <div className="feat-row-left">
-                <div className="feat-row-icon">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M2 11l4-5 3 3 2-3 3 5"
-                      stroke="#0e0e0e"
-                      strokeWidth="1.1"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <div className="feat-row-title">Media Planning</div>
-                  <div className="feat-row-sub">
-                    Channel mix, CPMs, reach projections
-                  </div>
-                </div>
-              </div>
-              <span className="feat-row-badge">Agent 03</span>
-            </div>
-            <div className="feat-row">
-              <div className="feat-row-left">
-                <div className="feat-row-icon">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M8 2v12M4 5.5C4 4.1 5.3 3 8 3s4 1.1 4 2.5c0 3-8 3-8 6 0 1.4 1.3 2.5 4 2.5s4-1.1 4-2.5"
-                      stroke="#0e0e0e"
-                      strokeWidth="1.1"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <div className="feat-row-title">Budget Optimization</div>
-                  <div className="feat-row-sub">
-                    Spend allocation with ROI modeling
-                  </div>
-                </div>
-              </div>
-              <span className="feat-row-badge">Agent 04</span>
-            </div>
-            <div className="feat-row">
-              <div className="feat-row-left">
-                <div className="feat-row-icon">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M4 8h8M7 5l-3 3 3 3"
-                      stroke="#0e0e0e"
-                      strokeWidth="1.1"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <div className="feat-row-title">Legal Documents</div>
-                  <div className="feat-row-sub">
-                    NDAs, usage rights, compliance review
-                  </div>
-                </div>
-              </div>
-              <span className="feat-row-badge">Agent 05</span>
-            </div>
-            <div className="feat-row">
-              <div className="feat-row-left">
-                <div className="feat-row-icon">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <circle
-                      cx="8"
-                      cy="8"
-                      r="5.5"
-                      stroke="#0e0e0e"
-                      strokeWidth="1.1"
-                    />
-                    <path
-                      d="M6 8l1.5 1.5L10 6"
-                      stroke="#0e0e0e"
-                      strokeWidth="1.1"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <div className="feat-row-title">Client Portal</div>
-                  <div className="feat-row-sub">
-                    White-label delivery and approvals
-                  </div>
-                </div>
-              </div>
-              <span className="feat-row-badge">Agent 06</span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>
