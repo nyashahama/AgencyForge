@@ -97,6 +97,9 @@ export default function DashboardSidebar({
             <p className="text-xs text-white/50">{user.role}</p>
           </div>
         </div>
+        <p className="mt-4 text-xs uppercase tracking-[0.16em] text-white/35">
+          Team load: {agents.reduce((sum, agent) => sum + agent.load, 0)} live tasks
+        </p>
       </div>
     </aside>
   );

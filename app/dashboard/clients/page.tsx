@@ -1,11 +1,22 @@
+"use client";
+
+import { useState } from "react";
 import DashboardShell from "../components/DashboardShell";
 import DashboardPageIntro from "../components/DashboardPageIntro";
 import DashboardKpiGrid from "../components/DashboardKpiGrid";
 import StatusPill from "../components/StatusPill";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CLIENTS } from "../components/data";
+import Modal from "@/components/ui/modal";
+import { type Client } from "../components/data";
+import { useMockDashboard } from "../components/mock-state";
 
 export default function ClientsPage() {
+  const { clients, logTouchpoint, updateClient } = useMockDashboard();
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [note, setNote] = useState("");
+
   return (
     <DashboardShell>
       <DashboardPageIntro
@@ -19,28 +30,28 @@ export default function ClientsPage() {
           items={[
             {
               label: "Healthy accounts",
-              value: `${CLIENTS.filter((client) => client.health === "strong").length}`,
+              value: `${clients.filter((client) => client.health === "strong").length}`,
               note: "Accounts currently moving without delivery friction",
             },
             {
               label: "Watchlist",
-              value: `${CLIENTS.filter((client) => client.health !== "strong").length}`,
+              value: `${clients.filter((client) => client.health !== "strong").length}`,
               note: "Accounts requiring tighter operational follow-up",
             },
             {
               label: "Open approvals",
-              value: `${CLIENTS.reduce((sum, client) => sum + client.openApprovals, 0)}`,
+              value: `${clients.reduce((sum, client) => sum + client.openApprovals, 0)}`,
               note: "Active client-side decisions still outstanding",
             },
             {
               label: "Retainer value",
-              value: "$125k",
+              value: `$${clients.reduce((sum, client) => sum + Number(client.mrr.replace(/[^0-9]/g, "")), 0)}k`,
               note: "Monthly recurring revenue represented on this board",
             },
           ]}
         />
         <div className="grid gap-4 lg:grid-cols-2">
-          {CLIENTS.map((client) => (
+          {clients.map((client) => (
             <Card key={client.id}>
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
@@ -97,11 +108,94 @@ export default function ClientsPage() {
                     {client.notes}
                   </p>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="subtle" onClick={() => setSelectedClient(client)}>
+                    Manage
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      logTouchpoint(client.id, `Reviewed account health and approvals just now`)
+                    }
+                  >
+                    Log touchpoint
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
       </div>
+      <Modal
+        open={Boolean(selectedClient)}
+        onClose={() => {
+          setSelectedClient(null);
+          setNote("");
+        }}
+        title={selectedClient?.name ?? "Client"}
+        description={selectedClient ? `Lead ${selectedClient.lead}` : ""}
+        footer={
+          selectedClient ? (
+            <>
+              <Button variant="ghost" onClick={() => setSelectedClient(null)}>
+                Close
+              </Button>
+              <Button
+                variant="accent"
+                onClick={() => {
+                  updateClient(selectedClient.id, selectedClient);
+                  if (note.trim()) {
+                    logTouchpoint(selectedClient.id, note.trim());
+                  }
+                  setSelectedClient(null);
+                  setNote("");
+                }}
+              >
+                Save account
+              </Button>
+            </>
+          ) : null
+        }
+      >
+        {selectedClient ? (
+          <div className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium">Health</label>
+              <select
+                value={selectedClient.health}
+                onChange={(event) =>
+                  setSelectedClient((current) =>
+                    current
+                      ? { ...current, health: event.target.value as Client["health"] }
+                      : current,
+                  )
+                }
+                className="flex h-11 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm"
+              >
+                <option value="strong">strong</option>
+                <option value="watch">watch</option>
+                <option value="risk">risk</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Operating note</label>
+              <Input
+                value={selectedClient.notes}
+                onChange={(event) =>
+                  setSelectedClient((current) =>
+                    current ? { ...current, notes: event.target.value } : current,
+                  )
+                }
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">New touchpoint</label>
+              <Input value={note} onChange={(event) => setNote(event.target.value)} />
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </DashboardShell>
   );
 }

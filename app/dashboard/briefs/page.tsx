@@ -7,10 +7,20 @@ import DashboardKpiGrid from "../components/DashboardKpiGrid";
 import StatusPill from "../components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BRIEFS } from "../components/data";
+import Modal from "@/components/ui/modal";
+import { type Brief } from "../components/data";
+import { useMockDashboard } from "../components/mock-state";
 
 export default function BriefsPage() {
+  const {
+    briefs,
+    advanceBrief,
+    createCampaignFromBrief,
+    pushToast,
+    setUploadModalOpen,
+  } = useMockDashboard();
   const [dragging, setDragging] = useState(false);
+  const [selectedBrief, setSelectedBrief] = useState<Brief | null>(null);
 
   return (
     <DashboardShell>
@@ -25,22 +35,22 @@ export default function BriefsPage() {
           items={[
             {
               label: "New intake",
-              value: `${BRIEFS.filter((brief) => brief.status === "new").length}`,
+              value: `${briefs.filter((brief) => brief.status === "new").length}`,
               note: "Briefs still waiting for normalization",
             },
             {
               label: "Ready to run",
-              value: `${BRIEFS.filter((brief) => brief.status === "ready").length}`,
+              value: `${briefs.filter((brief) => brief.status === "ready").length}`,
               note: "Items that can move straight into campaign assembly",
             },
             {
               label: "Blocked",
-              value: `${BRIEFS.filter((brief) => brief.status === "blocked").length}`,
+              value: `${briefs.filter((brief) => brief.status === "blocked").length}`,
               note: "Intake items with unresolved compliance or context issues",
             },
             {
               label: "Avg. file depth",
-              value: "10.3p",
+              value: `${(briefs.reduce((sum, brief) => sum + brief.pages, 0) / briefs.length).toFixed(1)}p`,
               note: "Average brief page count across the queue",
             },
           ]}
@@ -56,6 +66,11 @@ export default function BriefsPage() {
               onDrop={(event) => {
                 event.preventDefault();
                 setDragging(false);
+                const file = event.dataTransfer.files[0];
+                if (file) {
+                  setUploadModalOpen(true);
+                  pushToast("File captured", `${file.name} is ready for intake mapping.`);
+                }
               }}
               className={`rounded-[28px] border-2 border-dashed p-8 transition ${
                 dragging
@@ -72,7 +87,11 @@ export default function BriefsPage() {
                     right specialists.
                   </p>
                 </div>
-                <Button variant="accent" className="rounded-full">
+                <Button
+                  variant="accent"
+                  className="rounded-full"
+                  onClick={() => setUploadModalOpen(true)}
+                >
                   Choose file
                 </Button>
               </div>
@@ -86,7 +105,7 @@ export default function BriefsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {BRIEFS.map((brief) => (
+                {briefs.map((brief) => (
                   <div
                     key={brief.id}
                     className="grid gap-4 rounded-[24px] border border-[var(--border)] p-5 lg:grid-cols-[minmax(0,1fr)_160px_180px]"
@@ -122,6 +141,29 @@ export default function BriefsPage() {
                         Next action
                       </p>
                       <p className="mt-2 text-sm leading-6">{brief.nextAction}</p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button size="sm" variant="subtle" onClick={() => setSelectedBrief(brief)}>
+                          View
+                        </Button>
+                        {brief.status !== "ready" ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => advanceBrief(brief.id)}
+                          >
+                            Advance
+                          </Button>
+                        ) : null}
+                        {brief.status === "ready" ? (
+                          <Button
+                            size="sm"
+                            variant="accent"
+                            onClick={() => createCampaignFromBrief(brief.id)}
+                          >
+                            Create campaign
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -150,6 +192,53 @@ export default function BriefsPage() {
           </Card>
         </div>
       </div>
+      <Modal
+        open={Boolean(selectedBrief)}
+        onClose={() => setSelectedBrief(null)}
+        title={selectedBrief?.title ?? "Brief"}
+        description={selectedBrief ? `${selectedBrief.client} · ${selectedBrief.channel}` : ""}
+        footer={
+          selectedBrief ? (
+            <>
+              <Button variant="ghost" onClick={() => setSelectedBrief(null)}>
+                Close
+              </Button>
+              {selectedBrief.status === "ready" ? (
+                <Button
+                  variant="accent"
+                  onClick={() => {
+                    createCampaignFromBrief(selectedBrief.id);
+                    setSelectedBrief(null);
+                  }}
+                >
+                  Launch campaign
+                </Button>
+              ) : (
+                <Button
+                  variant="accent"
+                  onClick={() => {
+                    advanceBrief(selectedBrief.id);
+                    setSelectedBrief(null);
+                  }}
+                >
+                  Advance intake
+                </Button>
+              )}
+            </>
+          ) : null
+        }
+      >
+        {selectedBrief ? (
+          <div className="space-y-4 text-sm text-[var(--foreground-muted)]">
+            <div className="rounded-[22px] border border-[var(--border)] p-4">
+              Uploaded {selectedBrief.uploaded} by {selectedBrief.owner}
+            </div>
+            <div className="rounded-[22px] border border-[var(--border)] p-4">
+              {selectedBrief.pages} pages · Next step: {selectedBrief.nextAction}
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </DashboardShell>
   );
 }
