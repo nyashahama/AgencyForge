@@ -4,3 +4,4 @@ server
 coverage.out
 db/gen/*
 !db/gen/.gitkeep
+!db/gen/*.go
