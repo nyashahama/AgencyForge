@@ -7,68 +7,240 @@ package dbgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createPortal = `-- name: CreatePortal :one
-INSERT INTO portals (
-  client_id,
+const countPortalsByAgency = `-- name: CountPortalsByAgency :one
+SELECT COUNT(*)
+FROM portals
+WHERE agency_id = $1
+  AND archived_at IS NULL
+`
+
+func (q *Queries) CountPortalsByAgency(ctx context.Context, agencyID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countPortalsByAgency, agencyID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createPortalPublication = `-- name: CreatePortalPublication :one
+INSERT INTO portal_publications (
+  portal_id,
+  version_number,
+  status,
+  published_by_user_id,
+  payload,
+  published_at
+) VALUES (
+  $1, $2, $3, $4, $5, $6
+)
+RETURNING id, portal_id, version_number, status, published_by_user_id, payload, published_at, created_at, updated_at
+`
+
+type CreatePortalPublicationParams struct {
+	PortalID          uuid.UUID          `json:"portal_id"`
+	VersionNumber     int32              `json:"version_number"`
+	Status            string             `json:"status"`
+	PublishedByUserID pgtype.UUID        `json:"published_by_user_id"`
+	Payload           []byte             `json:"payload"`
+	PublishedAt       pgtype.Timestamptz `json:"published_at"`
+}
+
+func (q *Queries) CreatePortalPublication(ctx context.Context, arg CreatePortalPublicationParams) (PortalPublication, error) {
+	row := q.db.QueryRow(ctx, createPortalPublication,
+		arg.PortalID,
+		arg.VersionNumber,
+		arg.Status,
+		arg.PublishedByUserID,
+		arg.Payload,
+		arg.PublishedAt,
+	)
+	var i PortalPublication
+	err := row.Scan(
+		&i.ID,
+		&i.PortalID,
+		&i.VersionNumber,
+		&i.Status,
+		&i.PublishedByUserID,
+		&i.Payload,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createPortalReviewFlow = `-- name: CreatePortalReviewFlow :one
+INSERT INTO portal_review_flows (
+  portal_id,
   name,
-  theme,
   review_mode,
-  share_state
+  config_json,
+  is_default
 ) VALUES (
   $1, $2, $3, $4, $5
 )
-RETURNING id, client_id, name, theme, review_mode, share_state, published_at, created_at, updated_at, agency_id, slug, description, last_published_at, archived_at
+RETURNING id, portal_id, name, review_mode, config_json, is_default, created_at, updated_at
 `
 
-type CreatePortalParams struct {
-	ClientID   uuid.UUID `json:"client_id"`
+type CreatePortalReviewFlowParams struct {
+	PortalID   uuid.UUID `json:"portal_id"`
 	Name       string    `json:"name"`
-	Theme      string    `json:"theme"`
 	ReviewMode string    `json:"review_mode"`
-	ShareState string    `json:"share_state"`
+	ConfigJson []byte    `json:"config_json"`
+	IsDefault  bool      `json:"is_default"`
 }
 
-func (q *Queries) CreatePortal(ctx context.Context, arg CreatePortalParams) (Portal, error) {
-	row := q.db.QueryRow(ctx, createPortal,
-		arg.ClientID,
+func (q *Queries) CreatePortalReviewFlow(ctx context.Context, arg CreatePortalReviewFlowParams) (PortalReviewFlow, error) {
+	row := q.db.QueryRow(ctx, createPortalReviewFlow,
+		arg.PortalID,
 		arg.Name,
-		arg.Theme,
 		arg.ReviewMode,
-		arg.ShareState,
+		arg.ConfigJson,
+		arg.IsDefault,
 	)
-	var i Portal
+	var i PortalReviewFlow
 	err := row.Scan(
 		&i.ID,
-		&i.ClientID,
+		&i.PortalID,
 		&i.Name,
-		&i.Theme,
 		&i.ReviewMode,
-		&i.ShareState,
-		&i.PublishedAt,
+		&i.ConfigJson,
+		&i.IsDefault,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.AgencyID,
-		&i.Slug,
-		&i.Description,
-		&i.LastPublishedAt,
-		&i.ArchivedAt,
 	)
 	return i, err
 }
 
-const getPortal = `-- name: GetPortal :one
-SELECT id, client_id, name, theme, review_mode, share_state, published_at, created_at, updated_at, agency_id, slug, description, last_published_at, archived_at
-FROM portals
-WHERE id = $1
+const createPortalShare = `-- name: CreatePortalShare :one
+INSERT INTO portal_shares (
+  portal_id,
+  status,
+  expires_at
+) VALUES (
+  $1, $2, $3
+)
+RETURNING id, portal_id, access_token, status, expires_at, last_accessed_at, created_at, updated_at
+`
+
+type CreatePortalShareParams struct {
+	PortalID  uuid.UUID          `json:"portal_id"`
+	Status    string             `json:"status"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreatePortalShare(ctx context.Context, arg CreatePortalShareParams) (PortalShare, error) {
+	row := q.db.QueryRow(ctx, createPortalShare, arg.PortalID, arg.Status, arg.ExpiresAt)
+	var i PortalShare
+	err := row.Scan(
+		&i.ID,
+		&i.PortalID,
+		&i.AccessToken,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.LastAccessedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getActivePortalShareByPortal = `-- name: GetActivePortalShareByPortal :one
+SELECT id, portal_id, access_token, status, expires_at, last_accessed_at, created_at, updated_at
+FROM portal_shares
+WHERE portal_id = $1
+  AND status = 'active'
+ORDER BY created_at DESC
 LIMIT 1
 `
 
-func (q *Queries) GetPortal(ctx context.Context, id uuid.UUID) (Portal, error) {
-	row := q.db.QueryRow(ctx, getPortal, id)
+func (q *Queries) GetActivePortalShareByPortal(ctx context.Context, portalID uuid.UUID) (PortalShare, error) {
+	row := q.db.QueryRow(ctx, getActivePortalShareByPortal, portalID)
+	var i PortalShare
+	err := row.Scan(
+		&i.ID,
+		&i.PortalID,
+		&i.AccessToken,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.LastAccessedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getDefaultPortalReviewFlowByPortal = `-- name: GetDefaultPortalReviewFlowByPortal :one
+SELECT id, portal_id, name, review_mode, config_json, is_default, created_at, updated_at
+FROM portal_review_flows
+WHERE portal_id = $1
+  AND is_default = TRUE
+ORDER BY created_at ASC
+LIMIT 1
+`
+
+func (q *Queries) GetDefaultPortalReviewFlowByPortal(ctx context.Context, portalID uuid.UUID) (PortalReviewFlow, error) {
+	row := q.db.QueryRow(ctx, getDefaultPortalReviewFlowByPortal, portalID)
+	var i PortalReviewFlow
+	err := row.Scan(
+		&i.ID,
+		&i.PortalID,
+		&i.Name,
+		&i.ReviewMode,
+		&i.ConfigJson,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLatestPortalPublicationByPortal = `-- name: GetLatestPortalPublicationByPortal :one
+SELECT id, portal_id, version_number, status, published_by_user_id, payload, published_at, created_at, updated_at
+FROM portal_publications
+WHERE portal_id = $1
+ORDER BY version_number DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestPortalPublicationByPortal(ctx context.Context, portalID uuid.UUID) (PortalPublication, error) {
+	row := q.db.QueryRow(ctx, getLatestPortalPublicationByPortal, portalID)
+	var i PortalPublication
+	err := row.Scan(
+		&i.ID,
+		&i.PortalID,
+		&i.VersionNumber,
+		&i.Status,
+		&i.PublishedByUserID,
+		&i.Payload,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPortalByIDAndAgency = `-- name: GetPortalByIDAndAgency :one
+SELECT id, client_id, name, theme, review_mode, share_state, published_at, created_at, updated_at, agency_id, slug, description, last_published_at, archived_at
+FROM portals
+WHERE agency_id = $1
+  AND id = $2
+  AND archived_at IS NULL
+LIMIT 1
+`
+
+type GetPortalByIDAndAgencyParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	ID       uuid.UUID `json:"id"`
+}
+
+func (q *Queries) GetPortalByIDAndAgency(ctx context.Context, arg GetPortalByIDAndAgencyParams) (Portal, error) {
+	row := q.db.QueryRow(ctx, getPortalByIDAndAgency, arg.AgencyID, arg.ID)
 	var i Portal
 	err := row.Scan(
 		&i.ID,
@@ -89,21 +261,248 @@ func (q *Queries) GetPortal(ctx context.Context, id uuid.UUID) (Portal, error) {
 	return i, err
 }
 
-const listPortals = `-- name: ListPortals :many
-SELECT id, client_id, name, theme, review_mode, share_state, published_at, created_at, updated_at, agency_id, slug, description, last_published_at, archived_at
-FROM portals
-ORDER BY created_at DESC
+const getPortalSummaryByIDAndAgency = `-- name: GetPortalSummaryByIDAndAgency :one
+SELECT
+  p.id, p.client_id, p.name, p.theme, p.review_mode, p.share_state, p.published_at, p.created_at, p.updated_at, p.agency_id, p.slug, p.description, p.last_published_at, p.archived_at,
+  c.name AS client_name,
+  COALESCE((
+    SELECT MAX(pp.version_number)
+    FROM portal_publications pp
+    WHERE pp.portal_id = p.id
+  ), 0)::integer AS latest_publication_version,
+  (
+    SELECT COUNT(*)::bigint
+    FROM portal_shares ps
+    WHERE ps.portal_id = p.id
+      AND ps.status = 'active'
+  ) AS active_share_count
+FROM portals p
+JOIN clients c
+  ON c.id = p.client_id
+WHERE p.agency_id = $1
+  AND p.id = $2
+  AND p.archived_at IS NULL
+LIMIT 1
 `
 
-func (q *Queries) ListPortals(ctx context.Context) ([]Portal, error) {
-	rows, err := q.db.Query(ctx, listPortals)
+type GetPortalSummaryByIDAndAgencyParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	ID       uuid.UUID `json:"id"`
+}
+
+type GetPortalSummaryByIDAndAgencyRow struct {
+	ID                       uuid.UUID          `json:"id"`
+	ClientID                 uuid.UUID          `json:"client_id"`
+	Name                     string             `json:"name"`
+	Theme                    string             `json:"theme"`
+	ReviewMode               string             `json:"review_mode"`
+	ShareState               string             `json:"share_state"`
+	PublishedAt              pgtype.Timestamptz `json:"published_at"`
+	CreatedAt                time.Time          `json:"created_at"`
+	UpdatedAt                time.Time          `json:"updated_at"`
+	AgencyID                 uuid.UUID          `json:"agency_id"`
+	Slug                     string             `json:"slug"`
+	Description              string             `json:"description"`
+	LastPublishedAt          pgtype.Timestamptz `json:"last_published_at"`
+	ArchivedAt               pgtype.Timestamptz `json:"archived_at"`
+	ClientName               string             `json:"client_name"`
+	LatestPublicationVersion int32              `json:"latest_publication_version"`
+	ActiveShareCount         int64              `json:"active_share_count"`
+}
+
+func (q *Queries) GetPortalSummaryByIDAndAgency(ctx context.Context, arg GetPortalSummaryByIDAndAgencyParams) (GetPortalSummaryByIDAndAgencyRow, error) {
+	row := q.db.QueryRow(ctx, getPortalSummaryByIDAndAgency, arg.AgencyID, arg.ID)
+	var i GetPortalSummaryByIDAndAgencyRow
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.Name,
+		&i.Theme,
+		&i.ReviewMode,
+		&i.ShareState,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AgencyID,
+		&i.Slug,
+		&i.Description,
+		&i.LastPublishedAt,
+		&i.ArchivedAt,
+		&i.ClientName,
+		&i.LatestPublicationVersion,
+		&i.ActiveShareCount,
+	)
+	return i, err
+}
+
+const listPortalPublicationsByPortal = `-- name: ListPortalPublicationsByPortal :many
+SELECT id, portal_id, version_number, status, published_by_user_id, payload, published_at, created_at, updated_at
+FROM portal_publications
+WHERE portal_id = $1
+ORDER BY version_number DESC
+`
+
+func (q *Queries) ListPortalPublicationsByPortal(ctx context.Context, portalID uuid.UUID) ([]PortalPublication, error) {
+	rows, err := q.db.Query(ctx, listPortalPublicationsByPortal, portalID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Portal{}
+	items := []PortalPublication{}
 	for rows.Next() {
-		var i Portal
+		var i PortalPublication
+		if err := rows.Scan(
+			&i.ID,
+			&i.PortalID,
+			&i.VersionNumber,
+			&i.Status,
+			&i.PublishedByUserID,
+			&i.Payload,
+			&i.PublishedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPortalReviewFlowsByPortal = `-- name: ListPortalReviewFlowsByPortal :many
+SELECT id, portal_id, name, review_mode, config_json, is_default, created_at, updated_at
+FROM portal_review_flows
+WHERE portal_id = $1
+ORDER BY is_default DESC, created_at ASC
+`
+
+func (q *Queries) ListPortalReviewFlowsByPortal(ctx context.Context, portalID uuid.UUID) ([]PortalReviewFlow, error) {
+	rows, err := q.db.Query(ctx, listPortalReviewFlowsByPortal, portalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PortalReviewFlow{}
+	for rows.Next() {
+		var i PortalReviewFlow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PortalID,
+			&i.Name,
+			&i.ReviewMode,
+			&i.ConfigJson,
+			&i.IsDefault,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPortalSharesByPortal = `-- name: ListPortalSharesByPortal :many
+SELECT id, portal_id, access_token, status, expires_at, last_accessed_at, created_at, updated_at
+FROM portal_shares
+WHERE portal_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListPortalSharesByPortal(ctx context.Context, portalID uuid.UUID) ([]PortalShare, error) {
+	rows, err := q.db.Query(ctx, listPortalSharesByPortal, portalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PortalShare{}
+	for rows.Next() {
+		var i PortalShare
+		if err := rows.Scan(
+			&i.ID,
+			&i.PortalID,
+			&i.AccessToken,
+			&i.Status,
+			&i.ExpiresAt,
+			&i.LastAccessedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPortalsByAgency = `-- name: ListPortalsByAgency :many
+SELECT
+  p.id, p.client_id, p.name, p.theme, p.review_mode, p.share_state, p.published_at, p.created_at, p.updated_at, p.agency_id, p.slug, p.description, p.last_published_at, p.archived_at,
+  c.name AS client_name,
+  COALESCE((
+    SELECT MAX(pp.version_number)
+    FROM portal_publications pp
+    WHERE pp.portal_id = p.id
+  ), 0)::integer AS latest_publication_version,
+  (
+    SELECT COUNT(*)::bigint
+    FROM portal_shares ps
+    WHERE ps.portal_id = p.id
+      AND ps.status = 'active'
+  ) AS active_share_count
+FROM portals p
+JOIN clients c
+  ON c.id = p.client_id
+WHERE p.agency_id = $1
+  AND p.archived_at IS NULL
+ORDER BY p.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListPortalsByAgencyParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	Limit    int32     `json:"limit"`
+	Offset   int32     `json:"offset"`
+}
+
+type ListPortalsByAgencyRow struct {
+	ID                       uuid.UUID          `json:"id"`
+	ClientID                 uuid.UUID          `json:"client_id"`
+	Name                     string             `json:"name"`
+	Theme                    string             `json:"theme"`
+	ReviewMode               string             `json:"review_mode"`
+	ShareState               string             `json:"share_state"`
+	PublishedAt              pgtype.Timestamptz `json:"published_at"`
+	CreatedAt                time.Time          `json:"created_at"`
+	UpdatedAt                time.Time          `json:"updated_at"`
+	AgencyID                 uuid.UUID          `json:"agency_id"`
+	Slug                     string             `json:"slug"`
+	Description              string             `json:"description"`
+	LastPublishedAt          pgtype.Timestamptz `json:"last_published_at"`
+	ArchivedAt               pgtype.Timestamptz `json:"archived_at"`
+	ClientName               string             `json:"client_name"`
+	LatestPublicationVersion int32              `json:"latest_publication_version"`
+	ActiveShareCount         int64              `json:"active_share_count"`
+}
+
+func (q *Queries) ListPortalsByAgency(ctx context.Context, arg ListPortalsByAgencyParams) ([]ListPortalsByAgencyRow, error) {
+	rows, err := q.db.Query(ctx, listPortalsByAgency, arg.AgencyID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPortalsByAgencyRow{}
+	for rows.Next() {
+		var i ListPortalsByAgencyRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ClientID,
@@ -119,6 +518,9 @@ func (q *Queries) ListPortals(ctx context.Context) ([]Portal, error) {
 			&i.Description,
 			&i.LastPublishedAt,
 			&i.ArchivedAt,
+			&i.ClientName,
+			&i.LatestPublicationVersion,
+			&i.ActiveShareCount,
 		); err != nil {
 			return nil, err
 		}
@@ -128,4 +530,177 @@ func (q *Queries) ListPortals(ctx context.Context) ([]Portal, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const revokeActivePortalSharesByPortal = `-- name: RevokeActivePortalSharesByPortal :exec
+UPDATE portal_shares
+SET
+  status = 'revoked',
+  updated_at = NOW()
+WHERE portal_id = $1
+  AND status = 'active'
+`
+
+func (q *Queries) RevokeActivePortalSharesByPortal(ctx context.Context, portalID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, revokeActivePortalSharesByPortal, portalID)
+	return err
+}
+
+const supersedePublishedPortalPublications = `-- name: SupersedePublishedPortalPublications :exec
+UPDATE portal_publications
+SET
+  status = 'superseded',
+  updated_at = NOW()
+WHERE portal_id = $1
+  AND status = 'published'
+`
+
+func (q *Queries) SupersedePublishedPortalPublications(ctx context.Context, portalID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, supersedePublishedPortalPublications, portalID)
+	return err
+}
+
+const updatePortal = `-- name: UpdatePortal :one
+UPDATE portals
+SET
+  name = $3,
+  theme = $4,
+  review_mode = $5,
+  share_state = $6,
+  description = $7,
+  published_at = $8,
+  last_published_at = $9,
+  updated_at = NOW()
+WHERE agency_id = $1
+  AND id = $2
+  AND archived_at IS NULL
+RETURNING id, client_id, name, theme, review_mode, share_state, published_at, created_at, updated_at, agency_id, slug, description, last_published_at, archived_at
+`
+
+type UpdatePortalParams struct {
+	AgencyID        uuid.UUID          `json:"agency_id"`
+	ID              uuid.UUID          `json:"id"`
+	Name            string             `json:"name"`
+	Theme           string             `json:"theme"`
+	ReviewMode      string             `json:"review_mode"`
+	ShareState      string             `json:"share_state"`
+	Description     string             `json:"description"`
+	PublishedAt     pgtype.Timestamptz `json:"published_at"`
+	LastPublishedAt pgtype.Timestamptz `json:"last_published_at"`
+}
+
+func (q *Queries) UpdatePortal(ctx context.Context, arg UpdatePortalParams) (Portal, error) {
+	row := q.db.QueryRow(ctx, updatePortal,
+		arg.AgencyID,
+		arg.ID,
+		arg.Name,
+		arg.Theme,
+		arg.ReviewMode,
+		arg.ShareState,
+		arg.Description,
+		arg.PublishedAt,
+		arg.LastPublishedAt,
+	)
+	var i Portal
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.Name,
+		&i.Theme,
+		&i.ReviewMode,
+		&i.ShareState,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AgencyID,
+		&i.Slug,
+		&i.Description,
+		&i.LastPublishedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const updatePortalReviewFlow = `-- name: UpdatePortalReviewFlow :one
+UPDATE portal_review_flows
+SET
+  name = $3,
+  review_mode = $4,
+  config_json = $5,
+  is_default = $6,
+  updated_at = NOW()
+WHERE id = $1
+  AND portal_id = $2
+RETURNING id, portal_id, name, review_mode, config_json, is_default, created_at, updated_at
+`
+
+type UpdatePortalReviewFlowParams struct {
+	ID         uuid.UUID `json:"id"`
+	PortalID   uuid.UUID `json:"portal_id"`
+	Name       string    `json:"name"`
+	ReviewMode string    `json:"review_mode"`
+	ConfigJson []byte    `json:"config_json"`
+	IsDefault  bool      `json:"is_default"`
+}
+
+func (q *Queries) UpdatePortalReviewFlow(ctx context.Context, arg UpdatePortalReviewFlowParams) (PortalReviewFlow, error) {
+	row := q.db.QueryRow(ctx, updatePortalReviewFlow,
+		arg.ID,
+		arg.PortalID,
+		arg.Name,
+		arg.ReviewMode,
+		arg.ConfigJson,
+		arg.IsDefault,
+	)
+	var i PortalReviewFlow
+	err := row.Scan(
+		&i.ID,
+		&i.PortalID,
+		&i.Name,
+		&i.ReviewMode,
+		&i.ConfigJson,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updatePortalShare = `-- name: UpdatePortalShare :one
+UPDATE portal_shares
+SET
+  status = $3,
+  expires_at = $4,
+  updated_at = NOW()
+WHERE id = $1
+  AND portal_id = $2
+RETURNING id, portal_id, access_token, status, expires_at, last_accessed_at, created_at, updated_at
+`
+
+type UpdatePortalShareParams struct {
+	ID        uuid.UUID          `json:"id"`
+	PortalID  uuid.UUID          `json:"portal_id"`
+	Status    string             `json:"status"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) UpdatePortalShare(ctx context.Context, arg UpdatePortalShareParams) (PortalShare, error) {
+	row := q.db.QueryRow(ctx, updatePortalShare,
+		arg.ID,
+		arg.PortalID,
+		arg.Status,
+		arg.ExpiresAt,
+	)
+	var i PortalShare
+	err := row.Scan(
+		&i.ID,
+		&i.PortalID,
+		&i.AccessToken,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.LastAccessedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
