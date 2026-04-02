@@ -79,70 +79,57 @@ func (s *Service) Register(ctx context.Context, name string, email string, passw
 		return nil, err
 	}
 
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	queries := s.queries.WithTx(tx)
-	agency, err := queries.CreateAgency(ctx, dbgen.CreateAgencyParams{
-		Name: normalizedName + " Agency",
-		Slug: agencySlug(normalizedName),
-	})
-	if err != nil {
-		if isUniqueViolation(err) {
-			agency, err = queries.CreateAgency(ctx, dbgen.CreateAgencyParams{
-				Name: normalizedName + " Agency",
-				Slug: agencySlug(normalizedName + "-" + uuid.NewString()[:8]),
-			})
-		}
+	return database.InTx(ctx, s.db, func(tx pgx.Tx) (*Session, error) {
+		queries := s.queries.WithTx(tx)
+		agency, err := queries.CreateAgency(ctx, dbgen.CreateAgencyParams{
+			Name: normalizedName + " Agency",
+			Slug: agencySlug(normalizedName),
+		})
 		if err != nil {
-			return nil, fmt.Errorf("create agency: %w", err)
+			if isUniqueViolation(err) {
+				agency, err = queries.CreateAgency(ctx, dbgen.CreateAgencyParams{
+					Name: normalizedName + " Agency",
+					Slug: agencySlug(normalizedName + "-" + uuid.NewString()[:8]),
+				})
+			}
+			if err != nil {
+				return nil, fmt.Errorf("create agency: %w", err)
+			}
 		}
-	}
 
-	user, err := queries.CreateUser(ctx, dbgen.CreateUserParams{
-		AgencyID:     agency.ID,
-		Name:         normalizedName,
-		Email:        normalizedEmail,
-		PasswordHash: hashedPassword,
-		Role:         "owner",
-	})
-	if err != nil {
-		if isUniqueViolation(err) {
-			return nil, ErrEmailTaken
+		user, err := queries.CreateUser(ctx, dbgen.CreateUserParams{
+			AgencyID:     agency.ID,
+			Name:         normalizedName,
+			Email:        normalizedEmail,
+			PasswordHash: hashedPassword,
+			Role:         "owner",
+		})
+		if err != nil {
+			if isUniqueViolation(err) {
+				return nil, ErrEmailTaken
+			}
+			return nil, fmt.Errorf("create user: %w", err)
 		}
-		return nil, fmt.Errorf("create user: %w", err)
-	}
 
-	if _, err := queries.CreateAgencyMembership(ctx, dbgen.CreateAgencyMembershipParams{
-		AgencyID: agency.ID,
-		UserID:   user.ID,
-		Role:     "owner",
-		Status:   "active",
-	}); err != nil {
-		return nil, fmt.Errorf("create membership: %w", err)
-	}
+		if _, err := queries.CreateAgencyMembership(ctx, dbgen.CreateAgencyMembershipParams{
+			AgencyID: agency.ID,
+			UserID:   user.ID,
+			Role:     "owner",
+			Status:   "active",
+		}); err != nil {
+			return nil, fmt.Errorf("create membership: %w", err)
+		}
 
-	session, err := s.issueSession(ctx, queries, authIdentity{
-		ID:               user.ID,
-		AgencyID:         agency.ID,
-		Name:             user.Name,
-		Email:            user.Email,
-		Role:             user.Role,
-		AgencyName:       agency.Name,
-		MembershipStatus: "active",
+		return s.issueSession(ctx, queries, authIdentity{
+			ID:               user.ID,
+			AgencyID:         agency.ID,
+			Name:             user.Name,
+			Email:            user.Email,
+			Role:             user.Role,
+			AgencyName:       agency.Name,
+			MembershipStatus: "active",
+		})
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit transaction: %w", err)
-	}
-
-	return session, nil
 }
 
 func (s *Service) Login(ctx context.Context, email string, password string) (*Session, error) {
@@ -174,54 +161,41 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*Session, e
 		return nil, errors.New("auth service is not configured with a database")
 	}
 
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	queries := s.queries.WithTx(tx)
-	record, err := queries.GetRefreshToken(ctx, strings.TrimSpace(refreshToken))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrInvalidRefreshToken
+	return database.InTx(ctx, s.db, func(tx pgx.Tx) (*Session, error) {
+		queries := s.queries.WithTx(tx)
+		record, err := queries.GetRefreshToken(ctx, strings.TrimSpace(refreshToken))
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrInvalidRefreshToken
+			}
+			return nil, fmt.Errorf("get refresh token: %w", err)
 		}
-		return nil, fmt.Errorf("get refresh token: %w", err)
-	}
 
-	if time.Now().After(record.ExpiresAt) {
+		if time.Now().After(record.ExpiresAt) {
+			if err := queries.DeleteRefreshToken(ctx, record.Token); err != nil {
+				return nil, fmt.Errorf("delete expired refresh token: %w", err)
+			}
+			return nil, ErrExpiredRefreshToken
+		}
+
+		user, err := queries.GetUserAuthByID(ctx, record.UserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrUserNotFound
+			}
+			return nil, fmt.Errorf("get user by id: %w", err)
+		}
+
+		if user.MembershipStatus != "active" {
+			return nil, ErrInactiveMembership
+		}
+
 		if err := queries.DeleteRefreshToken(ctx, record.Token); err != nil {
-			return nil, fmt.Errorf("delete expired refresh token: %w", err)
+			return nil, fmt.Errorf("rotate refresh token: %w", err)
 		}
-		return nil, ErrExpiredRefreshToken
-	}
 
-	user, err := queries.GetUserAuthByID(ctx, record.UserID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrUserNotFound
-		}
-		return nil, fmt.Errorf("get user by id: %w", err)
-	}
-
-	if user.MembershipStatus != "active" {
-		return nil, ErrInactiveMembership
-	}
-
-	if err := queries.DeleteRefreshToken(ctx, record.Token); err != nil {
-		return nil, fmt.Errorf("rotate refresh token: %w", err)
-	}
-
-	session, err := s.issueSession(ctx, queries, authIdentityFromIDRow(user))
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit transaction: %w", err)
-	}
-
-	return session, nil
+		return s.issueSession(ctx, queries, authIdentityFromIDRow(user))
+	})
 }
 
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {

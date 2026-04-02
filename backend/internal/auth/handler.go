@@ -1,11 +1,12 @@
 package auth
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 
+	"github.com/nyashahama/AgencyForge/backend/internal/platform/apierr"
+	platformrequest "github.com/nyashahama/AgencyForge/backend/internal/platform/request"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/response"
 )
 
@@ -38,13 +39,13 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var input registerRequest
-	if err := decodeJSON(r, &input); err != nil {
-		response.Error(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+	if err := platformrequest.DecodeJSON(r, &input); err != nil {
+		apierr.Write(w, apierr.Invalid("INVALID_JSON", err.Error()))
 		return
 	}
 
 	if strings.TrimSpace(input.Name) == "" || strings.TrimSpace(input.Email) == "" || strings.TrimSpace(input.Password) == "" {
-		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "name, email, and password are required")
+		apierr.Write(w, apierr.Invalid("VALIDATION_ERROR", "name, email, and password are required"))
 		return
 	}
 
@@ -52,11 +53,11 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrEmailTaken):
-			response.Error(w, http.StatusConflict, "EMAIL_TAKEN", "email is already registered")
+			apierr.Write(w, apierr.Conflict("EMAIL_TAKEN", "email is already registered"))
 		case errors.Is(err, ErrWeakPassword):
-			response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+			apierr.Write(w, apierr.Invalid("VALIDATION_ERROR", err.Error()))
 		default:
-			response.Error(w, http.StatusInternalServerError, "REGISTER_FAILED", "could not create account")
+			apierr.Write(w, apierr.Internal("REGISTER_FAILED", "could not create account", err))
 		}
 		return
 	}
@@ -66,13 +67,13 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var input loginRequest
-	if err := decodeJSON(r, &input); err != nil {
-		response.Error(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+	if err := platformrequest.DecodeJSON(r, &input); err != nil {
+		apierr.Write(w, apierr.Invalid("INVALID_JSON", err.Error()))
 		return
 	}
 
 	if strings.TrimSpace(input.Email) == "" || strings.TrimSpace(input.Password) == "" {
-		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "email and password are required")
+		apierr.Write(w, apierr.Invalid("VALIDATION_ERROR", "email and password are required"))
 		return
 	}
 
@@ -80,11 +81,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidCredentials):
-			response.Error(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "email or password is incorrect")
+			apierr.Write(w, apierr.Unauthorized("INVALID_CREDENTIALS", "email or password is incorrect"))
 		case errors.Is(err, ErrInactiveMembership):
-			response.Error(w, http.StatusForbidden, "MEMBERSHIP_INACTIVE", "user membership is not active")
+			apierr.Write(w, apierr.Forbidden("MEMBERSHIP_INACTIVE", "user membership is not active"))
 		default:
-			response.Error(w, http.StatusInternalServerError, "LOGIN_FAILED", "could not complete login")
+			apierr.Write(w, apierr.Internal("LOGIN_FAILED", "could not complete login", err))
 		}
 		return
 	}
@@ -94,13 +95,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var input refreshRequest
-	if err := decodeJSON(r, &input); err != nil {
-		response.Error(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+	if err := platformrequest.DecodeJSON(r, &input); err != nil {
+		apierr.Write(w, apierr.Invalid("INVALID_JSON", err.Error()))
 		return
 	}
 
 	if strings.TrimSpace(input.RefreshToken) == "" {
-		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "refresh_token is required")
+		apierr.Write(w, apierr.Invalid("VALIDATION_ERROR", "refresh_token is required"))
 		return
 	}
 
@@ -108,11 +109,11 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidRefreshToken), errors.Is(err, ErrExpiredRefreshToken):
-			response.Error(w, http.StatusUnauthorized, "INVALID_REFRESH_TOKEN", "refresh token is invalid or expired")
+			apierr.Write(w, apierr.Unauthorized("INVALID_REFRESH_TOKEN", "refresh token is invalid or expired"))
 		case errors.Is(err, ErrInactiveMembership):
-			response.Error(w, http.StatusForbidden, "MEMBERSHIP_INACTIVE", "user membership is not active")
+			apierr.Write(w, apierr.Forbidden("MEMBERSHIP_INACTIVE", "user membership is not active"))
 		default:
-			response.Error(w, http.StatusInternalServerError, "REFRESH_FAILED", "could not refresh session")
+			apierr.Write(w, apierr.Internal("REFRESH_FAILED", "could not refresh session", err))
 		}
 		return
 	}
@@ -122,18 +123,18 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	var input logoutRequest
-	if err := decodeJSON(r, &input); err != nil {
-		response.Error(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+	if err := platformrequest.DecodeJSON(r, &input); err != nil {
+		apierr.Write(w, apierr.Invalid("INVALID_JSON", err.Error()))
 		return
 	}
 
 	if strings.TrimSpace(input.RefreshToken) == "" {
-		response.Error(w, http.StatusBadRequest, "VALIDATION_ERROR", "refresh_token is required")
+		apierr.Write(w, apierr.Invalid("VALIDATION_ERROR", "refresh_token is required"))
 		return
 	}
 
 	if err := h.service.Logout(r.Context(), input.RefreshToken); err != nil {
-		response.Error(w, http.StatusInternalServerError, "LOGOUT_FAILED", "could not revoke session")
+		apierr.Write(w, apierr.Internal("LOGOUT_FAILED", "could not revoke session", err))
 		return
 	}
 
@@ -143,7 +144,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(UserIDKey).(string)
 	if !ok || userID == "" {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing auth context")
+		apierr.Write(w, apierr.Unauthorized("UNAUTHORIZED", "missing auth context"))
 		return
 	}
 
@@ -151,20 +152,14 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrUserNotFound):
-			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "user no longer exists")
+			apierr.Write(w, apierr.Unauthorized("UNAUTHORIZED", "user no longer exists"))
 		case errors.Is(err, ErrInactiveMembership):
-			response.Error(w, http.StatusForbidden, "MEMBERSHIP_INACTIVE", "user membership is not active")
+			apierr.Write(w, apierr.Forbidden("MEMBERSHIP_INACTIVE", "user membership is not active"))
 		default:
-			response.Error(w, http.StatusInternalServerError, "ME_FAILED", "could not load current user")
+			apierr.Write(w, apierr.Internal("ME_FAILED", "could not load current user", err))
 		}
 		return
 	}
 
 	response.JSON(w, http.StatusOK, user)
-}
-
-func decodeJSON(r *http.Request, target any) error {
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
 }
