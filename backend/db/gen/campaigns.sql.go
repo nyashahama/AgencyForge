@@ -67,6 +67,121 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 	return i, err
 }
 
+const createCampaignFromBrief = `-- name: CreateCampaignFromBrief :one
+INSERT INTO campaigns (
+  agency_id,
+  owner_user_id,
+  client_id,
+  brief_id,
+  name,
+  status,
+  budget_cents,
+  due_at,
+  progress_percent,
+  risk_level,
+  budget_currency,
+  deliverable_count
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+)
+RETURNING id, client_id, brief_id, name, status, budget_cents, due_at, created_at, updated_at, agency_id, owner_user_id, progress_percent, risk_level, budget_currency, deliverable_count, approved_at, archived_at
+`
+
+type CreateCampaignFromBriefParams struct {
+	AgencyID         uuid.UUID          `json:"agency_id"`
+	OwnerUserID      pgtype.UUID        `json:"owner_user_id"`
+	ClientID         uuid.UUID          `json:"client_id"`
+	BriefID          pgtype.UUID        `json:"brief_id"`
+	Name             string             `json:"name"`
+	Status           string             `json:"status"`
+	BudgetCents      int64              `json:"budget_cents"`
+	DueAt            pgtype.Timestamptz `json:"due_at"`
+	ProgressPercent  int32              `json:"progress_percent"`
+	RiskLevel        string             `json:"risk_level"`
+	BudgetCurrency   string             `json:"budget_currency"`
+	DeliverableCount int32              `json:"deliverable_count"`
+}
+
+func (q *Queries) CreateCampaignFromBrief(ctx context.Context, arg CreateCampaignFromBriefParams) (Campaign, error) {
+	row := q.db.QueryRow(ctx, createCampaignFromBrief,
+		arg.AgencyID,
+		arg.OwnerUserID,
+		arg.ClientID,
+		arg.BriefID,
+		arg.Name,
+		arg.Status,
+		arg.BudgetCents,
+		arg.DueAt,
+		arg.ProgressPercent,
+		arg.RiskLevel,
+		arg.BudgetCurrency,
+		arg.DeliverableCount,
+	)
+	var i Campaign
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.BriefID,
+		&i.Name,
+		&i.Status,
+		&i.BudgetCents,
+		&i.DueAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AgencyID,
+		&i.OwnerUserID,
+		&i.ProgressPercent,
+		&i.RiskLevel,
+		&i.BudgetCurrency,
+		&i.DeliverableCount,
+		&i.ApprovedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const createCampaignStatusHistory = `-- name: CreateCampaignStatusHistory :one
+INSERT INTO campaign_status_history (
+  campaign_id,
+  from_status,
+  to_status,
+  changed_by_user_id,
+  note
+) VALUES (
+  $1, $2, $3, $4, $5
+)
+RETURNING id, campaign_id, from_status, to_status, changed_by_user_id, note, created_at
+`
+
+type CreateCampaignStatusHistoryParams struct {
+	CampaignID      uuid.UUID   `json:"campaign_id"`
+	FromStatus      pgtype.Text `json:"from_status"`
+	ToStatus        string      `json:"to_status"`
+	ChangedByUserID pgtype.UUID `json:"changed_by_user_id"`
+	Note            string      `json:"note"`
+}
+
+func (q *Queries) CreateCampaignStatusHistory(ctx context.Context, arg CreateCampaignStatusHistoryParams) (CampaignStatusHistory, error) {
+	row := q.db.QueryRow(ctx, createCampaignStatusHistory,
+		arg.CampaignID,
+		arg.FromStatus,
+		arg.ToStatus,
+		arg.ChangedByUserID,
+		arg.Note,
+	)
+	var i CampaignStatusHistory
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.FromStatus,
+		&i.ToStatus,
+		&i.ChangedByUserID,
+		&i.Note,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCampaign = `-- name: GetCampaign :one
 SELECT id, client_id, brief_id, name, status, budget_cents, due_at, created_at, updated_at, agency_id, owner_user_id, progress_percent, risk_level, budget_currency, deliverable_count, approved_at, archived_at
 FROM campaigns
