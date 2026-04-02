@@ -34,7 +34,47 @@ jobs:
       - name: Build server
         run: go build ./cmd/server
 
+  migration-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: agencyforge
+          POSTGRES_PASSWORD: agencyforge
+          POSTGRES_DB: agencyforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agencyforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable
+      JWT_SECRET: 01234567890123456789012345678901
+      APP_BASE_URL: http://localhost:3000
+      ALLOWED_ORIGINS: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Run migration smoke test
+        run: go test ./tests/integration/... -run TestExpectedTablesExist_Integration -tags=integration -count=1 -v
+
   integration:
+    needs:
+      - unit
+      - migration-smoke
     runs-on: ubuntu-latest
     defaults:
       run:
