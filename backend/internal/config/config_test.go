@@ -13,6 +13,8 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 	t.Setenv("JWT_SECRET", strings.Repeat("x", 40))
 	t.Setenv("JWT_EXPIRY", "30m")
 	t.Setenv("REFRESH_EXPIRY", "72h")
+	t.Setenv("AUTH_RATE_LIMIT_REQUESTS", "25")
+	t.Setenv("AUTH_RATE_LIMIT_WINDOW", "2m")
 	t.Setenv("APP_BASE_URL", "http://localhost:3000")
 	t.Setenv("ALLOWED_ORIGINS", "http://localhost:3000,https://agencyforge.app")
 
@@ -35,6 +37,14 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 
 	if cfg.RefreshExpiry != 72*time.Hour {
 		t.Fatalf("RefreshExpiry = %v, want 72h", cfg.RefreshExpiry)
+	}
+
+	if cfg.AuthRateLimitRequests != 25 {
+		t.Fatalf("AuthRateLimitRequests = %d, want 25", cfg.AuthRateLimitRequests)
+	}
+
+	if cfg.AuthRateLimitWindow != 2*time.Minute {
+		t.Fatalf("AuthRateLimitWindow = %v, want 2m", cfg.AuthRateLimitWindow)
 	}
 
 	if len(cfg.AllowedOrigins) != 2 {
@@ -68,6 +78,14 @@ func TestLoad_Defaults(t *testing.T) {
 		t.Fatalf("RefreshExpiry = %v, want 168h", cfg.RefreshExpiry)
 	}
 
+	if cfg.AuthRateLimitRequests != 10 {
+		t.Fatalf("AuthRateLimitRequests = %d, want 10", cfg.AuthRateLimitRequests)
+	}
+
+	if cfg.AuthRateLimitWindow != time.Minute {
+		t.Fatalf("AuthRateLimitWindow = %v, want 1m", cfg.AuthRateLimitWindow)
+	}
+
 	if len(cfg.AllowedOrigins) != 1 || cfg.AllowedOrigins[0] != "http://localhost:3000" {
 		t.Fatalf("AllowedOrigins = %#v, want fallback app origin", cfg.AllowedOrigins)
 	}
@@ -78,6 +96,28 @@ func TestLoad_InvalidDuration(t *testing.T) {
 	t.Setenv("JWT_SECRET", strings.Repeat("z", 40))
 	t.Setenv("APP_BASE_URL", "http://localhost:3000")
 	t.Setenv("JWT_EXPIRY", "bad-duration")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want error")
+	}
+}
+
+func TestLoad_InvalidAuthRateLimitRequests(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable")
+	t.Setenv("JWT_SECRET", strings.Repeat("z", 40))
+	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+	t.Setenv("AUTH_RATE_LIMIT_REQUESTS", "zero")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want error")
+	}
+}
+
+func TestLoad_InvalidAuthRateLimitWindow(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable")
+	t.Setenv("JWT_SECRET", strings.Repeat("z", 40))
+	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+	t.Setenv("AUTH_RATE_LIMIT_WINDOW", "0s")
 
 	if _, err := Load(); err == nil {
 		t.Fatal("Load() error = nil, want error")

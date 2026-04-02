@@ -26,31 +26,8 @@ import (
 )
 
 func TestRegisterLoginRefreshLogoutMe_Integration(t *testing.T) {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable"
-	}
-
-	t.Setenv("DATABASE_URL", dbURL)
-	t.Setenv("JWT_SECRET", strings.Repeat("a", 40))
-	t.Setenv("APP_BASE_URL", "http://localhost:3000")
-
 	resetAuthTables(t)
-
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatalf("config.Load() error = %v", err)
-	}
-
-	db := &database.Pool{Pool: testDB}
-	router := server.NewRouter(cfg, slog.New(slog.NewTextHandler(os.Stdout, nil)), server.Handlers{
-		Health:    health.New(testDB),
-		Auth:      auth.NewHandler(auth.NewService(db, cfg.JWTSecret, 15*time.Minute, 168*time.Hour)),
-		Clients:   client.NewHandler(client.NewService(nil)),
-		Briefs:    brief.NewHandler(brief.NewService(nil)),
-		Campaigns: campaign.NewHandler(campaign.NewService(nil)),
-		Portals:   portal.NewHandler(portal.NewService(nil)),
-	})
+	router := newAuthTestRouter(t)
 
 	email := "demo+" + strings.ToLower(strings.ReplaceAll(time.Now().UTC().Format("20060102150405.000000"), ".", "")) + "@agencyforge.test"
 
@@ -178,6 +155,116 @@ func TestRegisterLoginRefreshLogoutMe_Integration(t *testing.T) {
 	if postLogoutRefreshRec.Code != http.StatusUnauthorized {
 		t.Fatalf("post logout refresh status = %d, want %d, body = %s", postLogoutRefreshRec.Code, http.StatusUnauthorized, postLogoutRefreshRec.Body.String())
 	}
+}
+
+func TestAuthResponsesIncludeRequestID_Integration(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable"
+	}
+
+	t.Setenv("DATABASE_URL", dbURL)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", 40))
+	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+
+	resetAuthTables(t)
+
+	router := newAuthTestRouter(t)
+
+	email := "demo+" + strings.ToLower(strings.ReplaceAll(time.Now().UTC().Format("20060102150405.000000"), ".", "")) + "@agencyforge.test"
+
+	registerBody := bytes.NewBufferString(`{"name":"Sophia Lund","email":"` + email + `","password":"password123"}`)
+	registerReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", registerBody)
+	registerReq.Header.Set("X-Request-ID", "req-hardening-123")
+	registerRec := httptest.NewRecorder()
+
+	router.ServeHTTP(registerRec, registerReq)
+
+	if registerRec.Header().Get("X-Request-ID") != "req-hardening-123" {
+		t.Fatalf("X-Request-ID = %q, want req-hardening-123", registerRec.Header().Get("X-Request-ID"))
+	}
+}
+
+func TestAuthRateLimit_Integration(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable"
+	}
+
+	t.Setenv("DATABASE_URL", dbURL)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", 40))
+	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+	t.Setenv("AUTH_RATE_LIMIT_REQUESTS", "2")
+	t.Setenv("AUTH_RATE_LIMIT_WINDOW", "1m")
+
+	resetAuthTables(t)
+
+	router := newAuthTestRouter(t)
+
+	email := "limit+" + strings.ToLower(strings.ReplaceAll(time.Now().UTC().Format("20060102150405.000000"), ".", "")) + "@agencyforge.test"
+
+	registerBody := bytes.NewBufferString(`{"name":"Rate Limited","email":"` + email + `","password":"password123"}`)
+	registerReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", registerBody)
+	registerReq.RemoteAddr = "203.0.113.40:4000"
+	registerRec := httptest.NewRecorder()
+	router.ServeHTTP(registerRec, registerReq)
+
+	if registerRec.Code != http.StatusCreated {
+		t.Fatalf("register status = %d, want %d, body = %s", registerRec.Code, http.StatusCreated, registerRec.Body.String())
+	}
+
+	for i := 0; i < 2; i++ {
+		loginBody := bytes.NewBufferString(`{"email":"` + email + `","password":"password123"}`)
+		loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", loginBody)
+		loginReq.RemoteAddr = "203.0.113.40:4000"
+		loginRec := httptest.NewRecorder()
+		router.ServeHTTP(loginRec, loginReq)
+
+		if loginRec.Code != http.StatusOK {
+			t.Fatalf("login attempt %d status = %d, want %d, body = %s", i+1, loginRec.Code, http.StatusOK, loginRec.Body.String())
+		}
+	}
+
+	blockedBody := bytes.NewBufferString(`{"email":"` + email + `","password":"password123"}`)
+	blockedReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", blockedBody)
+	blockedReq.RemoteAddr = "203.0.113.40:4000"
+	blockedRec := httptest.NewRecorder()
+	router.ServeHTTP(blockedRec, blockedReq)
+
+	if blockedRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("blocked status = %d, want %d, body = %s", blockedRec.Code, http.StatusTooManyRequests, blockedRec.Body.String())
+	}
+	if blockedRec.Header().Get("Retry-After") == "" {
+		t.Fatal("Retry-After header = empty, want retry hint")
+	}
+}
+
+func newAuthTestRouter(t *testing.T) http.Handler {
+	t.Helper()
+
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable"
+	}
+
+	t.Setenv("DATABASE_URL", dbURL)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", 40))
+	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+
+	db := &database.Pool{Pool: testDB}
+	return server.NewRouter(cfg, slog.New(slog.NewTextHandler(os.Stdout, nil)), server.Handlers{
+		Health:    health.New(testDB),
+		Auth:      auth.NewHandler(auth.NewService(db, cfg.JWTSecret, 15*time.Minute, 168*time.Hour)),
+		Clients:   client.NewHandler(client.NewService(nil)),
+		Briefs:    brief.NewHandler(brief.NewService(nil)),
+		Campaigns: campaign.NewHandler(campaign.NewService(nil)),
+		Portals:   portal.NewHandler(portal.NewService(nil)),
+	})
 }
 
 func resetAuthTables(t *testing.T) {
