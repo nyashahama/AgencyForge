@@ -31,7 +31,9 @@ type Handlers struct {
 
 func NewRouter(cfg *config.Config, logger *slog.Logger, h Handlers) *chi.Mux {
 	r := chi.NewRouter()
+	authRateLimiter := middleware.NewRateLimiter(cfg.AuthRateLimitRequests, cfg.AuthRateLimitWindow)
 
+	r.Use(middleware.RequestID)
 	r.Use(middleware.Recover)
 	r.Use(middleware.Logger(logger))
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
@@ -41,7 +43,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, h Handlers) *chi.Mux {
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Mount("/auth", h.Auth.Routes())
+		r.Group(func(r chi.Router) {
+			r.Use(authRateLimiter.Middleware())
+			r.Mount("/auth", h.Auth.Routes())
+		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.JWTSecret))
