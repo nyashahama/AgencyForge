@@ -3,19 +3,22 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type Config struct {
-	Port           string
-	Env            string
-	DatabaseURL    string
-	JWTSecret      string
-	AllowedOrigins []string
-	JWTExpiry      time.Duration
-	RefreshExpiry  time.Duration
-	AppBaseURL     string
+	Port                  string
+	Env                   string
+	DatabaseURL           string
+	JWTSecret             string
+	AllowedOrigins        []string
+	JWTExpiry             time.Duration
+	RefreshExpiry         time.Duration
+	AppBaseURL            string
+	AuthRateLimitRequests int
+	AuthRateLimitWindow   time.Duration
 }
 
 func Load() (*Config, error) {
@@ -34,6 +37,16 @@ func Load() (*Config, error) {
 	}
 
 	cfg.RefreshExpiry, err = parseDuration("REFRESH_EXPIRY", 168*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.AuthRateLimitRequests, err = parsePositiveInt("AUTH_RATE_LIMIT_REQUESTS", 10)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.AuthRateLimitWindow, err = parseDuration("AUTH_RATE_LIMIT_WINDOW", time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +90,14 @@ func (c *Config) validate() error {
 		return fmt.Errorf("JWT_SECRET must be at least 32 characters long")
 	}
 
+	if c.AuthRateLimitRequests < 1 {
+		return fmt.Errorf("AUTH_RATE_LIMIT_REQUESTS must be greater than 0")
+	}
+
+	if c.AuthRateLimitWindow <= 0 {
+		return fmt.Errorf("AUTH_RATE_LIMIT_WINDOW must be greater than 0")
+	}
+
 	return nil
 }
 
@@ -99,4 +120,21 @@ func parseDuration(key string, fallback time.Duration) (time.Duration, error) {
 	}
 
 	return duration, nil
+}
+
+func parsePositiveInt(key string, fallback int) (int, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback, nil
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid integer for %s: %w", key, err)
+	}
+	if parsed < 1 {
+		return 0, fmt.Errorf("%s must be greater than 0", key)
+	}
+
+	return parsed, nil
 }

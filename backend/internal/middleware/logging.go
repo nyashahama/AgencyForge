@@ -28,9 +28,11 @@ func Logger(logger *slog.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(recorder, r)
 
 			logger.Info("http request",
+				"request_id", RequestIDFromContext(r.Context()),
 				"method", r.Method,
 				"path", r.URL.Path,
 				"status", recorder.status,
+				"remote_ip", clientIP(r),
 				"duration_ms", time.Since(start).Milliseconds(),
 			)
 		})
