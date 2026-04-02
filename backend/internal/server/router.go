@@ -14,6 +14,7 @@ import (
 	"github.com/nyashahama/AgencyForge/backend/internal/middleware"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/health"
 	"github.com/nyashahama/AgencyForge/backend/internal/portal"
+	"github.com/nyashahama/AgencyForge/backend/internal/workspace"
 )
 
 type Handlers struct {
@@ -23,6 +24,7 @@ type Handlers struct {
 	Briefs    *brief.Handler
 	Campaigns *campaign.Handler
 	Portals   *portal.Handler
+	Workspace *workspace.Handler
 }
 
 func NewRouter(cfg *config.Config, logger *slog.Logger, h Handlers) *chi.Mux {
@@ -46,6 +48,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, h Handlers) *chi.Mux {
 			r.Mount("/briefs", h.Briefs.Routes())
 			r.Mount("/campaigns", h.Campaigns.Routes())
 			r.Mount("/portals", h.Portals.Routes())
+			if h.Workspace != nil {
+				r.Mount("/workspace", h.Workspace.Routes())
+			}
 		})
 	})
 
