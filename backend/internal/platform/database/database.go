@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -41,4 +42,25 @@ func New(ctx context.Context, databaseURL string) (*Pool, error) {
 
 func (p *Pool) Ping(ctx context.Context) error {
 	return p.Pool.Ping(ctx)
+}
+
+func InTx[T any](ctx context.Context, pool *Pool, fn func(pgx.Tx) (T, error)) (T, error) {
+	var zero T
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return zero, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	result, err := fn(tx)
+	if err != nil {
+		return zero, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return zero, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return result, nil
 }
