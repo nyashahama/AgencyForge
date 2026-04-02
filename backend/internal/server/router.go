@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/nyashahama/AgencyForge/backend/internal/analytics"
 	"github.com/nyashahama/AgencyForge/backend/internal/auth"
 	"github.com/nyashahama/AgencyForge/backend/internal/brief"
 	"github.com/nyashahama/AgencyForge/backend/internal/campaign"
@@ -20,6 +21,7 @@ import (
 type Handlers struct {
 	Health    *health.Handler
 	Auth      *auth.Handler
+	Analytics *analytics.Handler
 	Clients   *client.Handler
 	Briefs    *brief.Handler
 	Campaigns *campaign.Handler
@@ -44,6 +46,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, h Handlers) *chi.Mux {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.JWTSecret))
 			r.Get("/auth/me", h.Auth.Me)
+			if h.Analytics != nil {
+				r.Mount("/analytics", h.Analytics.Routes())
+			}
 			r.Mount("/clients", h.Clients.Routes())
 			r.Mount("/briefs", h.Briefs.Routes())
 			r.Mount("/campaigns", h.Campaigns.Routes())
