@@ -82,3 +82,51 @@ func (q *Queries) CreateActivityEvent(ctx context.Context, arg CreateActivityEve
 	)
 	return i, err
 }
+
+const listActivityEventsByAgency = `-- name: ListActivityEventsByAgency :many
+SELECT id, agency_id, actor_user_id, client_id, brief_id, campaign_id, portal_id, event_type, subject_type, subject_id, message, metadata, occurred_at, created_at
+FROM activity_events
+WHERE agency_id = $1
+ORDER BY occurred_at DESC, created_at DESC
+LIMIT $2
+`
+
+type ListActivityEventsByAgencyParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	Limit    int32     `json:"limit"`
+}
+
+func (q *Queries) ListActivityEventsByAgency(ctx context.Context, arg ListActivityEventsByAgencyParams) ([]ActivityEvent, error) {
+	rows, err := q.db.Query(ctx, listActivityEventsByAgency, arg.AgencyID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ActivityEvent{}
+	for rows.Next() {
+		var i ActivityEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.AgencyID,
+			&i.ActorUserID,
+			&i.ClientID,
+			&i.BriefID,
+			&i.CampaignID,
+			&i.PortalID,
+			&i.EventType,
+			&i.SubjectType,
+			&i.SubjectID,
+			&i.Message,
+			&i.Metadata,
+			&i.OccurredAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

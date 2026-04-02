@@ -16,6 +16,7 @@ import (
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/health"
 	"github.com/nyashahama/AgencyForge/backend/internal/portal"
 	"github.com/nyashahama/AgencyForge/backend/internal/server"
+	"github.com/nyashahama/AgencyForge/backend/internal/workspace"
 )
 
 func main() {
@@ -46,6 +47,7 @@ func main() {
 	briefService := brief.NewService(db)
 	campaignService := campaign.NewService(db)
 	portalService := portal.NewService(db)
+	workspaceService := workspace.NewService(db)
 
 	handlers := server.Handlers{
 		Health:    health.New(db),
@@ -54,6 +56,7 @@ func main() {
 		Briefs:    brief.NewHandler(briefService),
 		Campaigns: campaign.NewHandler(campaignService),
 		Portals:   portal.NewHandler(portalService),
+		Workspace: workspace.NewHandler(workspaceService),
 	}
 
 	router := server.NewRouter(cfg, logger, handlers)

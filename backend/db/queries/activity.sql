@@ -16,3 +16,10 @@ INSERT INTO activity_events (
   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
 RETURNING *;
+
+-- name: ListActivityEventsByAgency :many
+SELECT *
+FROM activity_events
+WHERE agency_id = $1
+ORDER BY occurred_at DESC, created_at DESC
+LIMIT $2;
