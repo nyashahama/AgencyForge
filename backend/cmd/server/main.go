@@ -7,6 +7,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/nyashahama/AgencyForge/backend/internal/analytics"
 	"github.com/nyashahama/AgencyForge/backend/internal/auth"
 	"github.com/nyashahama/AgencyForge/backend/internal/brief"
 	"github.com/nyashahama/AgencyForge/backend/internal/campaign"
@@ -43,6 +44,7 @@ func main() {
 	defer db.Close()
 
 	authService := auth.NewService(db, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
+	analyticsService := analytics.NewService(db)
 	clientService := client.NewService(db)
 	briefService := brief.NewService(db)
 	campaignService := campaign.NewService(db)
@@ -52,6 +54,7 @@ func main() {
 	handlers := server.Handlers{
 		Health:    health.New(db),
 		Auth:      auth.NewHandler(authService),
+		Analytics: analytics.NewHandler(analyticsService),
 		Clients:   client.NewHandler(clientService),
 		Briefs:    brief.NewHandler(briefService),
 		Campaigns: campaign.NewHandler(campaignService),
