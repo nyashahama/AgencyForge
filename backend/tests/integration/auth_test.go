@@ -214,4 +214,19 @@ func resetAuthTables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reset auth tables: %v", err)
 	}
+
+	_, err = testDB.Exec(context.Background(), `
+		INSERT INTO specialists (name, code, specialty_type, is_system)
+		VALUES
+			('Copy', 'copy', 'creative', TRUE),
+			('Design', 'design', 'creative', TRUE),
+			('Media', 'media', 'strategy', TRUE),
+			('Legal', 'legal', 'compliance', TRUE),
+			('Budget', 'budget', 'finance', TRUE),
+			('Portal', 'portal', 'delivery', TRUE)
+		ON CONFLICT (code) DO NOTHING
+	`)
+	if err != nil {
+		t.Fatalf("seed specialists: %v", err)
+	}
 }

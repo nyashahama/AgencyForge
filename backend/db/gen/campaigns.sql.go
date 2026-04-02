@@ -7,42 +7,78 @@ package dbgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countCampaignsByAgency = `-- name: CountCampaignsByAgency :one
+SELECT COUNT(*)
+FROM campaigns
+WHERE agency_id = $1
+  AND archived_at IS NULL
+`
+
+func (q *Queries) CountCampaignsByAgency(ctx context.Context, agencyID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countCampaignsByAgency, agencyID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createCampaign = `-- name: CreateCampaign :one
 INSERT INTO campaigns (
+  agency_id,
+  owner_user_id,
   client_id,
   brief_id,
   name,
   status,
   budget_cents,
-  due_at
+  due_at,
+  progress_percent,
+  risk_level,
+  budget_currency,
+  deliverable_count,
+  approved_at
 ) VALUES (
-  $1, $2, $3, $4, $5, $6
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 )
 RETURNING id, client_id, brief_id, name, status, budget_cents, due_at, created_at, updated_at, agency_id, owner_user_id, progress_percent, risk_level, budget_currency, deliverable_count, approved_at, archived_at
 `
 
 type CreateCampaignParams struct {
-	ClientID    uuid.UUID          `json:"client_id"`
-	BriefID     pgtype.UUID        `json:"brief_id"`
-	Name        string             `json:"name"`
-	Status      string             `json:"status"`
-	BudgetCents int64              `json:"budget_cents"`
-	DueAt       pgtype.Timestamptz `json:"due_at"`
+	AgencyID         uuid.UUID          `json:"agency_id"`
+	OwnerUserID      pgtype.UUID        `json:"owner_user_id"`
+	ClientID         uuid.UUID          `json:"client_id"`
+	BriefID          pgtype.UUID        `json:"brief_id"`
+	Name             string             `json:"name"`
+	Status           string             `json:"status"`
+	BudgetCents      int64              `json:"budget_cents"`
+	DueAt            pgtype.Timestamptz `json:"due_at"`
+	ProgressPercent  int32              `json:"progress_percent"`
+	RiskLevel        string             `json:"risk_level"`
+	BudgetCurrency   string             `json:"budget_currency"`
+	DeliverableCount int32              `json:"deliverable_count"`
+	ApprovedAt       pgtype.Timestamptz `json:"approved_at"`
 }
 
 func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) (Campaign, error) {
 	row := q.db.QueryRow(ctx, createCampaign,
+		arg.AgencyID,
+		arg.OwnerUserID,
 		arg.ClientID,
 		arg.BriefID,
 		arg.Name,
 		arg.Status,
 		arg.BudgetCents,
 		arg.DueAt,
+		arg.ProgressPercent,
+		arg.RiskLevel,
+		arg.BudgetCurrency,
+		arg.DeliverableCount,
+		arg.ApprovedAt,
 	)
 	var i Campaign
 	err := row.Scan(
@@ -63,6 +99,148 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 		&i.DeliverableCount,
 		&i.ApprovedAt,
 		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const createCampaignApproval = `-- name: CreateCampaignApproval :one
+INSERT INTO campaign_approvals (
+  campaign_id,
+  approver_name,
+  approver_email,
+  status,
+  feedback,
+  responded_at
+) VALUES (
+  $1, $2, $3, $4, $5, $6
+)
+RETURNING id, campaign_id, approver_name, approver_email, status, feedback, requested_at, responded_at, created_at, updated_at
+`
+
+type CreateCampaignApprovalParams struct {
+	CampaignID    uuid.UUID          `json:"campaign_id"`
+	ApproverName  string             `json:"approver_name"`
+	ApproverEmail string             `json:"approver_email"`
+	Status        string             `json:"status"`
+	Feedback      string             `json:"feedback"`
+	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
+}
+
+func (q *Queries) CreateCampaignApproval(ctx context.Context, arg CreateCampaignApprovalParams) (CampaignApproval, error) {
+	row := q.db.QueryRow(ctx, createCampaignApproval,
+		arg.CampaignID,
+		arg.ApproverName,
+		arg.ApproverEmail,
+		arg.Status,
+		arg.Feedback,
+		arg.RespondedAt,
+	)
+	var i CampaignApproval
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.ApproverName,
+		&i.ApproverEmail,
+		&i.Status,
+		&i.Feedback,
+		&i.RequestedAt,
+		&i.RespondedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createCampaignAssignment = `-- name: CreateCampaignAssignment :one
+INSERT INTO campaign_assignments (
+  campaign_id,
+  specialist_id,
+  assigned_user_id,
+  status,
+  load_units,
+  started_at,
+  completed_at
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7
+)
+RETURNING id, campaign_id, specialist_id, assigned_user_id, status, load_units, started_at, completed_at, created_at, updated_at
+`
+
+type CreateCampaignAssignmentParams struct {
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	SpecialistID   uuid.UUID          `json:"specialist_id"`
+	AssignedUserID pgtype.UUID        `json:"assigned_user_id"`
+	Status         string             `json:"status"`
+	LoadUnits      int32              `json:"load_units"`
+	StartedAt      pgtype.Timestamptz `json:"started_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+}
+
+func (q *Queries) CreateCampaignAssignment(ctx context.Context, arg CreateCampaignAssignmentParams) (CampaignAssignment, error) {
+	row := q.db.QueryRow(ctx, createCampaignAssignment,
+		arg.CampaignID,
+		arg.SpecialistID,
+		arg.AssignedUserID,
+		arg.Status,
+		arg.LoadUnits,
+		arg.StartedAt,
+		arg.CompletedAt,
+	)
+	var i CampaignAssignment
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.SpecialistID,
+		&i.AssignedUserID,
+		&i.Status,
+		&i.LoadUnits,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createCampaignDeliverable = `-- name: CreateCampaignDeliverable :one
+INSERT INTO campaign_deliverables (
+  campaign_id,
+  name,
+  deliverable_type,
+  status,
+  file_url
+) VALUES (
+  $1, $2, $3, $4, $5
+)
+RETURNING id, campaign_id, name, deliverable_type, status, file_url, created_at, updated_at
+`
+
+type CreateCampaignDeliverableParams struct {
+	CampaignID      uuid.UUID `json:"campaign_id"`
+	Name            string    `json:"name"`
+	DeliverableType string    `json:"deliverable_type"`
+	Status          string    `json:"status"`
+	FileUrl         string    `json:"file_url"`
+}
+
+func (q *Queries) CreateCampaignDeliverable(ctx context.Context, arg CreateCampaignDeliverableParams) (CampaignDeliverable, error) {
+	row := q.db.QueryRow(ctx, createCampaignDeliverable,
+		arg.CampaignID,
+		arg.Name,
+		arg.DeliverableType,
+		arg.Status,
+		arg.FileUrl,
+	)
+	var i CampaignDeliverable
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Name,
+		&i.DeliverableType,
+		&i.Status,
+		&i.FileUrl,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -182,15 +360,70 @@ func (q *Queries) CreateCampaignStatusHistory(ctx context.Context, arg CreateCam
 	return i, err
 }
 
-const getCampaign = `-- name: GetCampaign :one
+const deleteCampaignApproval = `-- name: DeleteCampaignApproval :exec
+DELETE FROM campaign_approvals
+WHERE id = $1
+  AND campaign_id = $2
+`
+
+type DeleteCampaignApprovalParams struct {
+	ID         uuid.UUID `json:"id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
+
+func (q *Queries) DeleteCampaignApproval(ctx context.Context, arg DeleteCampaignApprovalParams) error {
+	_, err := q.db.Exec(ctx, deleteCampaignApproval, arg.ID, arg.CampaignID)
+	return err
+}
+
+const deleteCampaignAssignment = `-- name: DeleteCampaignAssignment :exec
+DELETE FROM campaign_assignments
+WHERE id = $1
+  AND campaign_id = $2
+`
+
+type DeleteCampaignAssignmentParams struct {
+	ID         uuid.UUID `json:"id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
+
+func (q *Queries) DeleteCampaignAssignment(ctx context.Context, arg DeleteCampaignAssignmentParams) error {
+	_, err := q.db.Exec(ctx, deleteCampaignAssignment, arg.ID, arg.CampaignID)
+	return err
+}
+
+const deleteCampaignDeliverable = `-- name: DeleteCampaignDeliverable :exec
+DELETE FROM campaign_deliverables
+WHERE id = $1
+  AND campaign_id = $2
+`
+
+type DeleteCampaignDeliverableParams struct {
+	ID         uuid.UUID `json:"id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
+
+func (q *Queries) DeleteCampaignDeliverable(ctx context.Context, arg DeleteCampaignDeliverableParams) error {
+	_, err := q.db.Exec(ctx, deleteCampaignDeliverable, arg.ID, arg.CampaignID)
+	return err
+}
+
+const getCampaignByIDAndAgency = `-- name: GetCampaignByIDAndAgency :one
 SELECT id, client_id, brief_id, name, status, budget_cents, due_at, created_at, updated_at, agency_id, owner_user_id, progress_percent, risk_level, budget_currency, deliverable_count, approved_at, archived_at
 FROM campaigns
-WHERE id = $1
+WHERE agency_id = $1
+  AND id = $2
+  AND archived_at IS NULL
 LIMIT 1
 `
 
-func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, error) {
-	row := q.db.QueryRow(ctx, getCampaign, id)
+type GetCampaignByIDAndAgencyParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	ID       uuid.UUID `json:"id"`
+}
+
+func (q *Queries) GetCampaignByIDAndAgency(ctx context.Context, arg GetCampaignByIDAndAgencyParams) (Campaign, error) {
+	row := q.db.QueryRow(ctx, getCampaignByIDAndAgency, arg.AgencyID, arg.ID)
 	var i Campaign
 	err := row.Scan(
 		&i.ID,
@@ -214,21 +447,372 @@ func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, erro
 	return i, err
 }
 
-const listCampaigns = `-- name: ListCampaigns :many
-SELECT id, client_id, brief_id, name, status, budget_cents, due_at, created_at, updated_at, agency_id, owner_user_id, progress_percent, risk_level, budget_currency, deliverable_count, approved_at, archived_at
-FROM campaigns
-ORDER BY created_at DESC
+const getCampaignSummaryByIDAndAgency = `-- name: GetCampaignSummaryByIDAndAgency :one
+SELECT
+  cm.id, cm.client_id, cm.brief_id, cm.name, cm.status, cm.budget_cents, cm.due_at, cm.created_at, cm.updated_at, cm.agency_id, cm.owner_user_id, cm.progress_percent, cm.risk_level, cm.budget_currency, cm.deliverable_count, cm.approved_at, cm.archived_at,
+  c.name AS client_name,
+  COALESCE(u.email, '') AS owner_email,
+  ARRAY(
+    SELECT s.name
+    FROM campaign_assignments ca
+    JOIN specialists s
+      ON s.id = ca.specialist_id
+    WHERE ca.campaign_id = cm.id
+    ORDER BY s.name ASC
+  ) AS specialist_names,
+  (
+    SELECT COUNT(*)::bigint
+    FROM campaign_approvals ap
+    WHERE ap.campaign_id = cm.id
+      AND ap.status = 'pending'
+  ) AS pending_approvals_count
+FROM campaigns cm
+JOIN clients c
+  ON c.id = cm.client_id
+LEFT JOIN users u
+  ON u.id = cm.owner_user_id
+WHERE cm.agency_id = $1
+  AND cm.id = $2
+  AND cm.archived_at IS NULL
+LIMIT 1
 `
 
-func (q *Queries) ListCampaigns(ctx context.Context) ([]Campaign, error) {
-	rows, err := q.db.Query(ctx, listCampaigns)
+type GetCampaignSummaryByIDAndAgencyParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	ID       uuid.UUID `json:"id"`
+}
+
+type GetCampaignSummaryByIDAndAgencyRow struct {
+	ID                    uuid.UUID          `json:"id"`
+	ClientID              uuid.UUID          `json:"client_id"`
+	BriefID               pgtype.UUID        `json:"brief_id"`
+	Name                  string             `json:"name"`
+	Status                string             `json:"status"`
+	BudgetCents           int64              `json:"budget_cents"`
+	DueAt                 pgtype.Timestamptz `json:"due_at"`
+	CreatedAt             time.Time          `json:"created_at"`
+	UpdatedAt             time.Time          `json:"updated_at"`
+	AgencyID              uuid.UUID          `json:"agency_id"`
+	OwnerUserID           pgtype.UUID        `json:"owner_user_id"`
+	ProgressPercent       int32              `json:"progress_percent"`
+	RiskLevel             string             `json:"risk_level"`
+	BudgetCurrency        string             `json:"budget_currency"`
+	DeliverableCount      int32              `json:"deliverable_count"`
+	ApprovedAt            pgtype.Timestamptz `json:"approved_at"`
+	ArchivedAt            pgtype.Timestamptz `json:"archived_at"`
+	ClientName            string             `json:"client_name"`
+	OwnerEmail            string             `json:"owner_email"`
+	SpecialistNames       interface{}        `json:"specialist_names"`
+	PendingApprovalsCount int64              `json:"pending_approvals_count"`
+}
+
+func (q *Queries) GetCampaignSummaryByIDAndAgency(ctx context.Context, arg GetCampaignSummaryByIDAndAgencyParams) (GetCampaignSummaryByIDAndAgencyRow, error) {
+	row := q.db.QueryRow(ctx, getCampaignSummaryByIDAndAgency, arg.AgencyID, arg.ID)
+	var i GetCampaignSummaryByIDAndAgencyRow
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.BriefID,
+		&i.Name,
+		&i.Status,
+		&i.BudgetCents,
+		&i.DueAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AgencyID,
+		&i.OwnerUserID,
+		&i.ProgressPercent,
+		&i.RiskLevel,
+		&i.BudgetCurrency,
+		&i.DeliverableCount,
+		&i.ApprovedAt,
+		&i.ArchivedAt,
+		&i.ClientName,
+		&i.OwnerEmail,
+		&i.SpecialistNames,
+		&i.PendingApprovalsCount,
+	)
+	return i, err
+}
+
+const getSpecialistsByCodes = `-- name: GetSpecialistsByCodes :many
+SELECT id, name, code, specialty_type, is_system, created_at, updated_at
+FROM specialists
+WHERE code = ANY($1::text[])
+ORDER BY name ASC
+`
+
+func (q *Queries) GetSpecialistsByCodes(ctx context.Context, dollar_1 []string) ([]Specialist, error) {
+	rows, err := q.db.Query(ctx, getSpecialistsByCodes, dollar_1)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Campaign{}
+	items := []Specialist{}
 	for rows.Next() {
-		var i Campaign
+		var i Specialist
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Code,
+			&i.SpecialtyType,
+			&i.IsSystem,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCampaignApprovalsByCampaign = `-- name: ListCampaignApprovalsByCampaign :many
+SELECT id, campaign_id, approver_name, approver_email, status, feedback, requested_at, responded_at, created_at, updated_at
+FROM campaign_approvals
+WHERE campaign_id = $1
+ORDER BY requested_at DESC, created_at DESC
+`
+
+func (q *Queries) ListCampaignApprovalsByCampaign(ctx context.Context, campaignID uuid.UUID) ([]CampaignApproval, error) {
+	rows, err := q.db.Query(ctx, listCampaignApprovalsByCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CampaignApproval{}
+	for rows.Next() {
+		var i CampaignApproval
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.ApproverName,
+			&i.ApproverEmail,
+			&i.Status,
+			&i.Feedback,
+			&i.RequestedAt,
+			&i.RespondedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCampaignAssignmentsByCampaign = `-- name: ListCampaignAssignmentsByCampaign :many
+SELECT
+  ca.id, ca.campaign_id, ca.specialist_id, ca.assigned_user_id, ca.status, ca.load_units, ca.started_at, ca.completed_at, ca.created_at, ca.updated_at,
+  s.name AS specialist_name,
+  s.code AS specialist_code,
+  COALESCE(u.email, '') AS assigned_user_email
+FROM campaign_assignments ca
+JOIN specialists s
+  ON s.id = ca.specialist_id
+LEFT JOIN users u
+  ON u.id = ca.assigned_user_id
+WHERE ca.campaign_id = $1
+ORDER BY s.name ASC
+`
+
+type ListCampaignAssignmentsByCampaignRow struct {
+	ID                uuid.UUID          `json:"id"`
+	CampaignID        uuid.UUID          `json:"campaign_id"`
+	SpecialistID      uuid.UUID          `json:"specialist_id"`
+	AssignedUserID    pgtype.UUID        `json:"assigned_user_id"`
+	Status            string             `json:"status"`
+	LoadUnits         int32              `json:"load_units"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt         time.Time          `json:"created_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+	SpecialistName    string             `json:"specialist_name"`
+	SpecialistCode    string             `json:"specialist_code"`
+	AssignedUserEmail string             `json:"assigned_user_email"`
+}
+
+func (q *Queries) ListCampaignAssignmentsByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListCampaignAssignmentsByCampaignRow, error) {
+	rows, err := q.db.Query(ctx, listCampaignAssignmentsByCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCampaignAssignmentsByCampaignRow{}
+	for rows.Next() {
+		var i ListCampaignAssignmentsByCampaignRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.SpecialistID,
+			&i.AssignedUserID,
+			&i.Status,
+			&i.LoadUnits,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SpecialistName,
+			&i.SpecialistCode,
+			&i.AssignedUserEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCampaignDeliverablesByCampaign = `-- name: ListCampaignDeliverablesByCampaign :many
+SELECT id, campaign_id, name, deliverable_type, status, file_url, created_at, updated_at
+FROM campaign_deliverables
+WHERE campaign_id = $1
+ORDER BY created_at ASC
+`
+
+func (q *Queries) ListCampaignDeliverablesByCampaign(ctx context.Context, campaignID uuid.UUID) ([]CampaignDeliverable, error) {
+	rows, err := q.db.Query(ctx, listCampaignDeliverablesByCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CampaignDeliverable{}
+	for rows.Next() {
+		var i CampaignDeliverable
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.Name,
+			&i.DeliverableType,
+			&i.Status,
+			&i.FileUrl,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCampaignStatusHistoryByCampaign = `-- name: ListCampaignStatusHistoryByCampaign :many
+SELECT id, campaign_id, from_status, to_status, changed_by_user_id, note, created_at
+FROM campaign_status_history
+WHERE campaign_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListCampaignStatusHistoryByCampaign(ctx context.Context, campaignID uuid.UUID) ([]CampaignStatusHistory, error) {
+	rows, err := q.db.Query(ctx, listCampaignStatusHistoryByCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CampaignStatusHistory{}
+	for rows.Next() {
+		var i CampaignStatusHistory
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.FromStatus,
+			&i.ToStatus,
+			&i.ChangedByUserID,
+			&i.Note,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCampaignsByAgency = `-- name: ListCampaignsByAgency :many
+SELECT
+  cm.id, cm.client_id, cm.brief_id, cm.name, cm.status, cm.budget_cents, cm.due_at, cm.created_at, cm.updated_at, cm.agency_id, cm.owner_user_id, cm.progress_percent, cm.risk_level, cm.budget_currency, cm.deliverable_count, cm.approved_at, cm.archived_at,
+  c.name AS client_name,
+  COALESCE(u.email, '') AS owner_email,
+  ARRAY(
+    SELECT s.name
+    FROM campaign_assignments ca
+    JOIN specialists s
+      ON s.id = ca.specialist_id
+    WHERE ca.campaign_id = cm.id
+    ORDER BY s.name ASC
+  ) AS specialist_names,
+  (
+    SELECT COUNT(*)::bigint
+    FROM campaign_approvals ap
+    WHERE ap.campaign_id = cm.id
+      AND ap.status = 'pending'
+  ) AS pending_approvals_count
+FROM campaigns cm
+JOIN clients c
+  ON c.id = cm.client_id
+LEFT JOIN users u
+  ON u.id = cm.owner_user_id
+WHERE cm.agency_id = $1
+  AND cm.archived_at IS NULL
+ORDER BY cm.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListCampaignsByAgencyParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	Limit    int32     `json:"limit"`
+	Offset   int32     `json:"offset"`
+}
+
+type ListCampaignsByAgencyRow struct {
+	ID                    uuid.UUID          `json:"id"`
+	ClientID              uuid.UUID          `json:"client_id"`
+	BriefID               pgtype.UUID        `json:"brief_id"`
+	Name                  string             `json:"name"`
+	Status                string             `json:"status"`
+	BudgetCents           int64              `json:"budget_cents"`
+	DueAt                 pgtype.Timestamptz `json:"due_at"`
+	CreatedAt             time.Time          `json:"created_at"`
+	UpdatedAt             time.Time          `json:"updated_at"`
+	AgencyID              uuid.UUID          `json:"agency_id"`
+	OwnerUserID           pgtype.UUID        `json:"owner_user_id"`
+	ProgressPercent       int32              `json:"progress_percent"`
+	RiskLevel             string             `json:"risk_level"`
+	BudgetCurrency        string             `json:"budget_currency"`
+	DeliverableCount      int32              `json:"deliverable_count"`
+	ApprovedAt            pgtype.Timestamptz `json:"approved_at"`
+	ArchivedAt            pgtype.Timestamptz `json:"archived_at"`
+	ClientName            string             `json:"client_name"`
+	OwnerEmail            string             `json:"owner_email"`
+	SpecialistNames       interface{}        `json:"specialist_names"`
+	PendingApprovalsCount int64              `json:"pending_approvals_count"`
+}
+
+func (q *Queries) ListCampaignsByAgency(ctx context.Context, arg ListCampaignsByAgencyParams) ([]ListCampaignsByAgencyRow, error) {
+	rows, err := q.db.Query(ctx, listCampaignsByAgency, arg.AgencyID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCampaignsByAgencyRow{}
+	for rows.Next() {
+		var i ListCampaignsByAgencyRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ClientID,
@@ -247,6 +831,10 @@ func (q *Queries) ListCampaigns(ctx context.Context) ([]Campaign, error) {
 			&i.DeliverableCount,
 			&i.ApprovedAt,
 			&i.ArchivedAt,
+			&i.ClientName,
+			&i.OwnerEmail,
+			&i.SpecialistNames,
+			&i.PendingApprovalsCount,
 		); err != nil {
 			return nil, err
 		}
@@ -256,4 +844,332 @@ func (q *Queries) ListCampaigns(ctx context.Context) ([]Campaign, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const setCampaignDeliverableCount = `-- name: SetCampaignDeliverableCount :exec
+UPDATE campaigns
+SET
+  deliverable_count = (
+    SELECT COUNT(*)::integer
+    FROM campaign_deliverables cd
+    WHERE cd.campaign_id = $2
+  ),
+  updated_at = NOW()
+WHERE agency_id = $1
+  AND id = $2
+  AND archived_at IS NULL
+`
+
+type SetCampaignDeliverableCountParams struct {
+	AgencyID   uuid.UUID `json:"agency_id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
+
+func (q *Queries) SetCampaignDeliverableCount(ctx context.Context, arg SetCampaignDeliverableCountParams) error {
+	_, err := q.db.Exec(ctx, setCampaignDeliverableCount, arg.AgencyID, arg.CampaignID)
+	return err
+}
+
+const setClientOpenApprovalsCountFromCampaigns = `-- name: SetClientOpenApprovalsCountFromCampaigns :exec
+UPDATE clients c
+SET
+  open_approvals_count = (
+    SELECT COUNT(*)::integer
+    FROM campaign_approvals ap
+    JOIN campaigns cm
+      ON cm.id = ap.campaign_id
+    WHERE cm.client_id = c.id
+      AND cm.archived_at IS NULL
+      AND ap.status = 'pending'
+  ),
+  updated_at = NOW()
+WHERE c.agency_id = $1
+  AND c.id = $2
+  AND c.archived_at IS NULL
+`
+
+type SetClientOpenApprovalsCountFromCampaignsParams struct {
+	AgencyID uuid.UUID `json:"agency_id"`
+	ID       uuid.UUID `json:"id"`
+}
+
+func (q *Queries) SetClientOpenApprovalsCountFromCampaigns(ctx context.Context, arg SetClientOpenApprovalsCountFromCampaignsParams) error {
+	_, err := q.db.Exec(ctx, setClientOpenApprovalsCountFromCampaigns, arg.AgencyID, arg.ID)
+	return err
+}
+
+const updateCampaign = `-- name: UpdateCampaign :one
+UPDATE campaigns
+SET
+  client_id = $3,
+  brief_id = $4,
+  owner_user_id = $5,
+  name = $6,
+  status = $7,
+  budget_cents = $8,
+  due_at = $9,
+  progress_percent = $10,
+  risk_level = $11,
+  budget_currency = $12,
+  deliverable_count = $13,
+  approved_at = $14,
+  updated_at = NOW()
+WHERE agency_id = $1
+  AND id = $2
+  AND archived_at IS NULL
+RETURNING id, client_id, brief_id, name, status, budget_cents, due_at, created_at, updated_at, agency_id, owner_user_id, progress_percent, risk_level, budget_currency, deliverable_count, approved_at, archived_at
+`
+
+type UpdateCampaignParams struct {
+	AgencyID         uuid.UUID          `json:"agency_id"`
+	ID               uuid.UUID          `json:"id"`
+	ClientID         uuid.UUID          `json:"client_id"`
+	BriefID          pgtype.UUID        `json:"brief_id"`
+	OwnerUserID      pgtype.UUID        `json:"owner_user_id"`
+	Name             string             `json:"name"`
+	Status           string             `json:"status"`
+	BudgetCents      int64              `json:"budget_cents"`
+	DueAt            pgtype.Timestamptz `json:"due_at"`
+	ProgressPercent  int32              `json:"progress_percent"`
+	RiskLevel        string             `json:"risk_level"`
+	BudgetCurrency   string             `json:"budget_currency"`
+	DeliverableCount int32              `json:"deliverable_count"`
+	ApprovedAt       pgtype.Timestamptz `json:"approved_at"`
+}
+
+func (q *Queries) UpdateCampaign(ctx context.Context, arg UpdateCampaignParams) (Campaign, error) {
+	row := q.db.QueryRow(ctx, updateCampaign,
+		arg.AgencyID,
+		arg.ID,
+		arg.ClientID,
+		arg.BriefID,
+		arg.OwnerUserID,
+		arg.Name,
+		arg.Status,
+		arg.BudgetCents,
+		arg.DueAt,
+		arg.ProgressPercent,
+		arg.RiskLevel,
+		arg.BudgetCurrency,
+		arg.DeliverableCount,
+		arg.ApprovedAt,
+	)
+	var i Campaign
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.BriefID,
+		&i.Name,
+		&i.Status,
+		&i.BudgetCents,
+		&i.DueAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AgencyID,
+		&i.OwnerUserID,
+		&i.ProgressPercent,
+		&i.RiskLevel,
+		&i.BudgetCurrency,
+		&i.DeliverableCount,
+		&i.ApprovedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const updateCampaignApproval = `-- name: UpdateCampaignApproval :one
+UPDATE campaign_approvals
+SET
+  approver_name = $3,
+  approver_email = $4,
+  status = $5,
+  feedback = $6,
+  responded_at = $7,
+  updated_at = NOW()
+WHERE id = $1
+  AND campaign_id = $2
+RETURNING id, campaign_id, approver_name, approver_email, status, feedback, requested_at, responded_at, created_at, updated_at
+`
+
+type UpdateCampaignApprovalParams struct {
+	ID            uuid.UUID          `json:"id"`
+	CampaignID    uuid.UUID          `json:"campaign_id"`
+	ApproverName  string             `json:"approver_name"`
+	ApproverEmail string             `json:"approver_email"`
+	Status        string             `json:"status"`
+	Feedback      string             `json:"feedback"`
+	RespondedAt   pgtype.Timestamptz `json:"responded_at"`
+}
+
+func (q *Queries) UpdateCampaignApproval(ctx context.Context, arg UpdateCampaignApprovalParams) (CampaignApproval, error) {
+	row := q.db.QueryRow(ctx, updateCampaignApproval,
+		arg.ID,
+		arg.CampaignID,
+		arg.ApproverName,
+		arg.ApproverEmail,
+		arg.Status,
+		arg.Feedback,
+		arg.RespondedAt,
+	)
+	var i CampaignApproval
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.ApproverName,
+		&i.ApproverEmail,
+		&i.Status,
+		&i.Feedback,
+		&i.RequestedAt,
+		&i.RespondedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateCampaignAssignment = `-- name: UpdateCampaignAssignment :one
+UPDATE campaign_assignments
+SET
+  assigned_user_id = $3,
+  status = $4,
+  load_units = $5,
+  started_at = $6,
+  completed_at = $7,
+  updated_at = NOW()
+WHERE id = $1
+  AND campaign_id = $2
+RETURNING id, campaign_id, specialist_id, assigned_user_id, status, load_units, started_at, completed_at, created_at, updated_at
+`
+
+type UpdateCampaignAssignmentParams struct {
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	AssignedUserID pgtype.UUID        `json:"assigned_user_id"`
+	Status         string             `json:"status"`
+	LoadUnits      int32              `json:"load_units"`
+	StartedAt      pgtype.Timestamptz `json:"started_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+}
+
+func (q *Queries) UpdateCampaignAssignment(ctx context.Context, arg UpdateCampaignAssignmentParams) (CampaignAssignment, error) {
+	row := q.db.QueryRow(ctx, updateCampaignAssignment,
+		arg.ID,
+		arg.CampaignID,
+		arg.AssignedUserID,
+		arg.Status,
+		arg.LoadUnits,
+		arg.StartedAt,
+		arg.CompletedAt,
+	)
+	var i CampaignAssignment
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.SpecialistID,
+		&i.AssignedUserID,
+		&i.Status,
+		&i.LoadUnits,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateCampaignDeliverable = `-- name: UpdateCampaignDeliverable :one
+UPDATE campaign_deliverables
+SET
+  name = $3,
+  deliverable_type = $4,
+  status = $5,
+  file_url = $6,
+  updated_at = NOW()
+WHERE id = $1
+  AND campaign_id = $2
+RETURNING id, campaign_id, name, deliverable_type, status, file_url, created_at, updated_at
+`
+
+type UpdateCampaignDeliverableParams struct {
+	ID              uuid.UUID `json:"id"`
+	CampaignID      uuid.UUID `json:"campaign_id"`
+	Name            string    `json:"name"`
+	DeliverableType string    `json:"deliverable_type"`
+	Status          string    `json:"status"`
+	FileUrl         string    `json:"file_url"`
+}
+
+func (q *Queries) UpdateCampaignDeliverable(ctx context.Context, arg UpdateCampaignDeliverableParams) (CampaignDeliverable, error) {
+	row := q.db.QueryRow(ctx, updateCampaignDeliverable,
+		arg.ID,
+		arg.CampaignID,
+		arg.Name,
+		arg.DeliverableType,
+		arg.Status,
+		arg.FileUrl,
+	)
+	var i CampaignDeliverable
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Name,
+		&i.DeliverableType,
+		&i.Status,
+		&i.FileUrl,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateCampaignWorkflowState = `-- name: UpdateCampaignWorkflowState :one
+UPDATE campaigns
+SET
+  status = $3,
+  progress_percent = $4,
+  approved_at = $5,
+  updated_at = NOW()
+WHERE agency_id = $1
+  AND id = $2
+  AND archived_at IS NULL
+RETURNING id, client_id, brief_id, name, status, budget_cents, due_at, created_at, updated_at, agency_id, owner_user_id, progress_percent, risk_level, budget_currency, deliverable_count, approved_at, archived_at
+`
+
+type UpdateCampaignWorkflowStateParams struct {
+	AgencyID        uuid.UUID          `json:"agency_id"`
+	ID              uuid.UUID          `json:"id"`
+	Status          string             `json:"status"`
+	ProgressPercent int32              `json:"progress_percent"`
+	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
+}
+
+func (q *Queries) UpdateCampaignWorkflowState(ctx context.Context, arg UpdateCampaignWorkflowStateParams) (Campaign, error) {
+	row := q.db.QueryRow(ctx, updateCampaignWorkflowState,
+		arg.AgencyID,
+		arg.ID,
+		arg.Status,
+		arg.ProgressPercent,
+		arg.ApprovedAt,
+	)
+	var i Campaign
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.BriefID,
+		&i.Name,
+		&i.Status,
+		&i.BudgetCents,
+		&i.DueAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AgencyID,
+		&i.OwnerUserID,
+		&i.ProgressPercent,
+		&i.RiskLevel,
+		&i.BudgetCurrency,
+		&i.DeliverableCount,
+		&i.ApprovedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
 }
