@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/session";
 import AuthShowcase from "@/components/AuthShowcase";
 import AuthCard from "@/components/AuthCard";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ function passwordStrength(value: string) {
 
 export default function SignupPage() {
   const router = useRouter();
+  const { register } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,9 +56,15 @@ export default function SignupPage() {
     }
 
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setLoading(false);
-    router.push("/dashboard");
+    try {
+      await register(name, email, password);
+      router.push("/dashboard");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Registration failed";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

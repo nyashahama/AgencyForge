@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/lib/auth/session";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -47,7 +48,9 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-[var(--background)] font-sans text-[var(--foreground)] antialiased">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

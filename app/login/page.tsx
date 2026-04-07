@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/session";
 import AuthShowcase from "@/components/AuthShowcase";
 import AuthCard from "@/components/AuthCard";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -37,9 +39,15 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setLoading(false);
-    router.push("/dashboard");
+    try {
+      await login(email, password);
+      router.push("/dashboard");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
