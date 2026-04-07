@@ -1,21 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import DashboardShell from "../components/DashboardShell";
 import DashboardPageIntro from "../components/DashboardPageIntro";
 import DashboardKpiGrid from "../components/DashboardKpiGrid";
 import ThroughputChart from "../components/ThroughputChart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useMockDashboard } from "../components/mock-state";
+import { useAuth } from "@/lib/auth/session";
+import { analytics as analyticsApi } from "@/lib/api/endpoints";
+import type { ThroughputDatum, SpecialistLoad, DashboardAnalytics } from "@/lib/api/client";
+
+type Agent = {
+  name: string;
+  status: string;
+  load: number;
+  color: string;
+};
+
+function mapApiAgent(s: SpecialistLoad): Agent {
+  return {
+    name: s.specialist_name || s.specialist_code,
+    status: s.active_assignments > 0 ? "active" : "idle",
+    load: s.load_units,
+    color: s.active_assignments > 0 ? "#c8ff00" : "#d4d0c8",
+  };
+}
 
 export default function AnalyticsPage() {
-  const { agents, campaigns, throughput, simulateAnalytics } = useMockDashboard();
+  const { accessToken } = useAuth();
+  const [campaigns, setCampaigns] = useState<{ progress: number; status: string }[]>([]);
+  const [throughput, setThroughput] = useState<ThroughputDatum[]>([]);
+  const [specialists, setSpecialists] = useState<Agent[]>([]);
+  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"throughput" | "utilization">("throughput");
+
+  const fetchData = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      setLoading(true);
+      const [dashboardData, throughputData, specialistsData] = await Promise.all([
+        analyticsApi.dashboard(accessToken),
+        analyticsApi.throughput(accessToken),
+        analyticsApi.specialists(accessToken),
+      ]);
+      setAnalytics(dashboardData);
+      setThroughput(throughputData);
+      setSpecialists(specialistsData.map(mapApiAgent));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load analytics");
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (loading) {
+    return (
+      <DashboardShell>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+        </div>
+      </DashboardShell>
+    );
+  }
+
   const chartData =
     mode === "throughput"
       ? throughput
-      : agents.slice(0, 7).map((agent) => ({ day: agent.name.slice(0, 3), campaigns: agent.load }));
+      : specialists.slice(0, 7).map((agent) => ({ day: agent.name.slice(0, 3), campaigns: agent.load }));
+
+  const weeklyOutput = throughput.reduce((sum, item) => sum + item.campaigns, 0);
+  const avgCompletion = campaigns.length > 0 ? Math.round(campaigns.reduce((sum, c) => sum + c.progress, 0) / campaigns.length) : 0;
+  const activeSpecialists = specialists.filter((a) => a.status === "active").length;
 
   return (
     <DashboardShell>
@@ -30,17 +93,17 @@ export default function AnalyticsPage() {
           items={[
             {
               label: "Weekly output",
-              value: `${throughput.reduce((sum, item) => sum + item.campaigns, 0)}`,
+              value: String(weeklyOutput),
               note: "Campaign packages produced across the last seven days",
             },
             {
               label: "Avg. completion",
-              value: `${Math.round(campaigns.reduce((sum, campaign) => sum + campaign.progress, 0) / campaigns.length)}%`,
+              value: `${avgCompletion}%`,
               note: "Mean progress across active and approved campaigns",
             },
             {
               label: "Active specialists",
-              value: `${agents.filter((agent) => agent.status === "active").length}`,
+              value: String(activeSpecialists),
               note: "Parallel specialist lanes currently live",
             },
             {
@@ -67,7 +130,7 @@ export default function AnalyticsPage() {
               >
                 Utilization
               </Button>
-              <Button size="sm" variant="accent" onClick={simulateAnalytics}>
+              <Button size="sm" variant="accent" onClick={fetchData}>
                 Refresh forecast
               </Button>
             </div>
@@ -85,7 +148,7 @@ export default function AnalyticsPage() {
                 Approval latency decreased by 18% week over week.
               </div>
               <div className="rounded-[22px] border border-[var(--border)] p-4">
-                {agents
+                {specialists
                   .slice()
                   .sort((a, b) => b.load - a.load)
                   .slice(0, 2)
@@ -94,7 +157,7 @@ export default function AnalyticsPage() {
                 remain the highest-utilization specialists.
               </div>
               <div className="rounded-[22px] border border-[var(--border)] p-4">
-                Same-day delivery is now the default for {campaigns.filter((campaign) => campaign.progress > 70).length} campaigns.
+                Same-day delivery is now the default for {campaigns.filter((c) => c.progress > 70).length} campaigns.
               </div>
             </CardContent>
           </Card>

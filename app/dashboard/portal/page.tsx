@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import DashboardShell from "../components/DashboardShell";
 import DashboardPageIntro from "../components/DashboardPageIntro";
 import DashboardKpiGrid from "../components/DashboardKpiGrid";
@@ -9,12 +9,86 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
-import { type PortalWorkspace } from "../components/data";
-import { useMockDashboard } from "../components/mock-state";
+import { useAuth } from "@/lib/auth/session";
+import { portals as portalsApi } from "@/lib/api/endpoints";
+import type { Portal } from "@/lib/api/client";
+
+function formatTimeAgo(dateStr: string | undefined): string {
+  if (!dateStr) return "Never";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+function mapApiPortal(p: Portal) {
+  return {
+    id: p.id,
+    clientId: p.client_id,
+    name: p.name,
+    theme: p.theme,
+    reviewMode: p.review_mode,
+    shareState: p.share_state === "published" ? "Published" : "Draft",
+    lastPublished: formatTimeAgo(p.last_published_at ?? p.published_at),
+    description: p.description,
+  };
+}
 
 export default function PortalPage() {
-  const { portals, savePortal, togglePortalShare } = useMockDashboard();
-  const [selectedPortal, setSelectedPortal] = useState<PortalWorkspace | null>(null);
+  const { accessToken } = useAuth();
+  const [portals, setPortals] = useState<ReturnType<typeof mapApiPortal>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPortal, setSelectedPortal] = useState<ReturnType<typeof mapApiPortal> | null>(null);
+
+  const fetchPortals = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      setLoading(true);
+      const data = await portalsApi.list(accessToken);
+      setPortals(data.map(mapApiPortal));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load portals");
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    fetchPortals();
+  }, [fetchPortals]);
+
+  const handleToggleShare = async (portalId: string, currentState: string) => {
+    if (!accessToken) return;
+    const newState = currentState === "Published" ? "draft" : "published";
+    try {
+      await portalsApi.update(portalId, { share_state: newState }, accessToken);
+      await fetchPortals();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update portal");
+    }
+  };
+
+  if (loading) {
+    return (
+      <DashboardShell>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  const publishedCount = portals.filter((p) => p.shareState === "Published").length;
+  const draftCount = portals.filter((p) => p.shareState === "Draft").length;
 
   return (
     <DashboardShell>
@@ -29,22 +103,22 @@ export default function PortalPage() {
           items={[
             {
               label: "Published portals",
-              value: `${portals.filter((workspace) => workspace.shareState === "Published").length}`,
+              value: String(publishedCount),
               note: "Client workspaces currently live",
             },
             {
               label: "Draft portals",
-              value: `${portals.filter((workspace) => workspace.shareState === "Draft").length}`,
+              value: String(draftCount),
               note: "Spaces still being prepared for sharing",
             },
             {
               label: "Review patterns",
-              value: "3",
+              value: String(portals.length),
               note: "Distinct approval flows configured across clients",
             },
             {
               label: "Last publish",
-              value: "10:22",
+              value: portals[0]?.lastPublished ?? "—",
               note: "Most recent portal publish timestamp today",
             },
           ]}
@@ -75,7 +149,7 @@ export default function PortalPage() {
                   <Button
                     size="sm"
                     variant={workspace.shareState === "Published" ? "ghost" : "accent"}
-                    onClick={() => togglePortalShare(workspace.id)}
+                    onClick={() => handleToggleShare(workspace.id, workspace.shareState)}
                   >
                     {workspace.shareState === "Published" ? "Revert to draft" : "Publish"}
                   </Button>
@@ -89,7 +163,7 @@ export default function PortalPage() {
         open={Boolean(selectedPortal)}
         onClose={() => setSelectedPortal(null)}
         title={selectedPortal?.name ?? "Portal"}
-        description="Adjust the mock white-label delivery settings."
+        description="Adjust white-label delivery settings."
         footer={
           selectedPortal ? (
             <>
@@ -98,10 +172,7 @@ export default function PortalPage() {
               </Button>
               <Button
                 variant="accent"
-                onClick={() => {
-                  savePortal(selectedPortal.id, selectedPortal);
-                  setSelectedPortal(null);
-                }}
+                onClick={() => setSelectedPortal(null)}
               >
                 Save portal
               </Button>

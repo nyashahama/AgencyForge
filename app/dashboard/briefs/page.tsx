@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import DashboardShell from "../components/DashboardShell";
 import DashboardPageIntro from "../components/DashboardPageIntro";
 import DashboardKpiGrid from "../components/DashboardKpiGrid";
@@ -8,19 +8,106 @@ import StatusPill from "../components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
-import { type Brief } from "../components/data";
-import { useMockDashboard } from "../components/mock-state";
+import { useAuth } from "@/lib/auth/session";
+import { briefs as briefsApi, campaigns as campaignsApi } from "@/lib/api/endpoints";
+import type { Brief, CampaignSummary } from "@/lib/api/client";
+
+type BriefStatus = "new" | "processing" | "ready" | "blocked";
+
+function formatTimeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 60) return `${diffMins} min ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleDateString();
+}
+
+function mapApiBrief(b: Brief) {
+  return {
+    id: b.id,
+    clientId: b.client_id,
+    client: b.client_name,
+    title: b.title,
+    channel: b.channel,
+    status: b.status as BriefStatus,
+    pages: b.pages,
+    nextAction: b.next_action,
+    owner: b.owner_email,
+    uploaded: formatTimeAgo(b.created_at),
+    createdAt: b.created_at,
+  };
+}
 
 export default function BriefsPage() {
-  const {
-    briefs,
-    advanceBrief,
-    createCampaignFromBrief,
-    pushToast,
-    setUploadModalOpen,
-  } = useMockDashboard();
+  const { accessToken } = useAuth();
+  const [briefs, setBriefs] = useState<ReturnType<typeof mapApiBrief>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [selectedBrief, setSelectedBrief] = useState<Brief | null>(null);
+  const [selectedBrief, setSelectedBrief] = useState<ReturnType<typeof mapApiBrief> | null>(null);
+
+  const fetchBriefs = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      setLoading(true);
+      const data = await briefsApi.list(accessToken);
+      setBriefs(data.map(mapApiBrief));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load briefs");
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    fetchBriefs();
+  }, [fetchBriefs]);
+
+  const handleAdvanceBrief = async (briefId: string) => {
+    if (!accessToken) return;
+    try {
+      await briefsApi.update(briefId, { status: "processing" }, accessToken);
+      await fetchBriefs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to advance brief");
+    }
+  };
+
+  const handleCreateCampaign = async (briefId: string) => {
+    if (!accessToken) return;
+    const brief = briefs.find((b) => b.id === briefId);
+    if (!brief) return;
+    try {
+      await campaignsApi.create({
+        client_id: brief.clientId,
+        brief_id: briefId,
+        name: brief.title,
+        status: "draft",
+      }, accessToken);
+      await fetchBriefs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create campaign");
+    }
+  };
+
+  if (loading) {
+    return (
+      <DashboardShell>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  const newCount = briefs.filter((b) => b.status === "new").length;
+  const readyCount = briefs.filter((b) => b.status === "ready").length;
+  const blockedCount = briefs.filter((b) => b.status === "blocked").length;
+  const avgPages = briefs.length > 0 ? (briefs.reduce((sum, b) => sum + b.pages, 0) / briefs.length).toFixed(1) : "0";
 
   return (
     <DashboardShell>
@@ -35,22 +122,22 @@ export default function BriefsPage() {
           items={[
             {
               label: "New intake",
-              value: `${briefs.filter((brief) => brief.status === "new").length}`,
+              value: String(newCount),
               note: "Briefs still waiting for normalization",
             },
             {
               label: "Ready to run",
-              value: `${briefs.filter((brief) => brief.status === "ready").length}`,
+              value: String(readyCount),
               note: "Items that can move straight into campaign assembly",
             },
             {
               label: "Blocked",
-              value: `${briefs.filter((brief) => brief.status === "blocked").length}`,
+              value: String(blockedCount),
               note: "Intake items with unresolved compliance or context issues",
             },
             {
               label: "Avg. file depth",
-              value: `${(briefs.reduce((sum, brief) => sum + brief.pages, 0) / briefs.length).toFixed(1)}p`,
+              value: `${avgPages}p`,
               note: "Average brief page count across the queue",
             },
           ]}
@@ -66,11 +153,6 @@ export default function BriefsPage() {
               onDrop={(event) => {
                 event.preventDefault();
                 setDragging(false);
-                const file = event.dataTransfer.files[0];
-                if (file) {
-                  setUploadModalOpen(true);
-                  pushToast("File captured", `${file.name} is ready for intake mapping.`);
-                }
               }}
               className={`rounded-[28px] border-2 border-dashed p-8 transition ${
                 dragging
@@ -87,11 +169,7 @@ export default function BriefsPage() {
                     right specialists.
                   </p>
                 </div>
-                <Button
-                  variant="accent"
-                  className="rounded-full"
-                  onClick={() => setUploadModalOpen(true)}
-                >
+                <Button variant="accent" className="rounded-full">
                   Choose file
                 </Button>
               </div>
@@ -149,7 +227,7 @@ export default function BriefsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => advanceBrief(brief.id)}
+                            onClick={() => handleAdvanceBrief(brief.id)}
                           >
                             Advance
                           </Button>
@@ -158,7 +236,7 @@ export default function BriefsPage() {
                           <Button
                             size="sm"
                             variant="accent"
-                            onClick={() => createCampaignFromBrief(brief.id)}
+                            onClick={() => handleCreateCampaign(brief.id)}
                           >
                             Create campaign
                           </Button>
@@ -207,7 +285,7 @@ export default function BriefsPage() {
                 <Button
                   variant="accent"
                   onClick={() => {
-                    createCampaignFromBrief(selectedBrief.id);
+                    handleCreateCampaign(selectedBrief.id);
                     setSelectedBrief(null);
                   }}
                 >
@@ -217,7 +295,7 @@ export default function BriefsPage() {
                 <Button
                   variant="accent"
                   onClick={() => {
-                    advanceBrief(selectedBrief.id);
+                    handleAdvanceBrief(selectedBrief.id);
                     setSelectedBrief(null);
                   }}
                 >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import DashboardShell from "../components/DashboardShell";
 import DashboardPageIntro from "../components/DashboardPageIntro";
 import DashboardKpiGrid from "../components/DashboardKpiGrid";
@@ -9,13 +9,85 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
-import { type Client } from "../components/data";
-import { useMockDashboard } from "../components/mock-state";
+import { useAuth } from "@/lib/auth/session";
+import { clients as clientsApi } from "@/lib/api/endpoints";
+import type { Client } from "@/lib/api/client";
+
+type ClientHealth = "strong" | "watch" | "risk";
+
+function formatMrr(cents: number): string {
+  return `$${Math.round(cents / 100)}k`;
+}
+
+function formatTimeAgo(dateStr: string | undefined): string {
+  if (!dateStr) return "No activity";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 60) return `${diffMins} min ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
+function mapApiClient(c: Client) {
+  return {
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    lead: c.lead_email,
+    health: c.health as ClientHealth,
+    notes: c.notes,
+    mrr: formatMrr(c.mrr_cents),
+    mrrCents: c.mrr_cents,
+    openApprovals: c.open_approvals_count,
+    lastTouchpoint: c.latest_touchpoint ?? "No activity",
+    lastTouchpointAt: c.last_touchpoint_at,
+  };
+}
 
 export default function ClientsPage() {
-  const { clients, logTouchpoint, updateClient } = useMockDashboard();
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const { accessToken } = useAuth();
+  const [clients, setClients] = useState<ReturnType<typeof mapApiClient>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<ReturnType<typeof mapApiClient> | null>(null);
   const [note, setNote] = useState("");
+
+  const fetchClients = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      setLoading(true);
+      const data = await clientsApi.list(accessToken);
+      setClients(data.map(mapApiClient));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load clients");
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
+
+  const healthyCount = clients.filter((c) => c.health === "strong").length;
+  const watchCount = clients.filter((c) => c.health !== "strong").length;
+  const totalApprovals = clients.reduce((sum, c) => sum + c.openApprovals, 0);
+  const totalMrr = clients.reduce((sum, c) => sum + c.mrrCents, 0);
+
+  if (loading) {
+    return (
+      <DashboardShell>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+        </div>
+      </DashboardShell>
+    );
+  }
 
   return (
     <DashboardShell>
@@ -30,22 +102,22 @@ export default function ClientsPage() {
           items={[
             {
               label: "Healthy accounts",
-              value: `${clients.filter((client) => client.health === "strong").length}`,
+              value: String(healthyCount),
               note: "Accounts currently moving without delivery friction",
             },
             {
               label: "Watchlist",
-              value: `${clients.filter((client) => client.health !== "strong").length}`,
+              value: String(watchCount),
               note: "Accounts requiring tighter operational follow-up",
             },
             {
               label: "Open approvals",
-              value: `${clients.reduce((sum, client) => sum + client.openApprovals, 0)}`,
+              value: String(totalApprovals),
               note: "Active client-side decisions still outstanding",
             },
             {
               label: "Retainer value",
-              value: `$${clients.reduce((sum, client) => sum + Number(client.mrr.replace(/[^0-9]/g, "")), 0)}k`,
+              value: formatMrr(totalMrr),
               note: "Monthly recurring revenue represented on this board",
             },
           ]}
@@ -75,9 +147,9 @@ export default function ClientsPage() {
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="rounded-[20px] bg-[var(--surface-muted)] p-4">
                     <p className="text-xs uppercase tracking-[0.16em] text-[var(--foreground-soft)]">
-                      Campaigns
+                      MRR
                     </p>
-                    <p className="mt-2 text-2xl font-semibold">{client.activeCampaigns}</p>
+                    <p className="mt-2 text-2xl font-semibold">{client.mrr}</p>
                   </div>
                   <div className="rounded-[20px] bg-[var(--surface-muted)] p-4">
                     <p className="text-xs uppercase tracking-[0.16em] text-[var(--foreground-soft)]">
@@ -87,9 +159,9 @@ export default function ClientsPage() {
                   </div>
                   <div className="rounded-[20px] bg-[var(--surface-muted)] p-4">
                     <p className="text-xs uppercase tracking-[0.16em] text-[var(--foreground-soft)]">
-                      MRR
+                      Notes
                     </p>
-                    <p className="mt-2 text-2xl font-semibold">{client.mrr}</p>
+                    <p className="mt-2 text-sm truncate">{client.notes || "None"}</p>
                   </div>
                 </div>
                 <div>
@@ -100,26 +172,9 @@ export default function ClientsPage() {
                     {client.lastTouchpoint}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--foreground-soft)]">
-                    Operating note
-                  </p>
-                  <p className="mt-2 text-sm text-[var(--foreground-muted)]">
-                    {client.notes}
-                  </p>
-                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="subtle" onClick={() => setSelectedClient(client)}>
                     Manage
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      logTouchpoint(client.id, `Reviewed account health and approvals just now`)
-                    }
-                  >
-                    Log touchpoint
                   </Button>
                 </div>
               </CardContent>
@@ -144,10 +199,6 @@ export default function ClientsPage() {
               <Button
                 variant="accent"
                 onClick={() => {
-                  updateClient(selectedClient.id, selectedClient);
-                  if (note.trim()) {
-                    logTouchpoint(selectedClient.id, note.trim());
-                  }
                   setSelectedClient(null);
                   setNote("");
                 }}
@@ -167,7 +218,7 @@ export default function ClientsPage() {
                 onChange={(event) =>
                   setSelectedClient((current) =>
                     current
-                      ? { ...current, health: event.target.value as Client["health"] }
+                      ? { ...current, health: event.target.value as ClientHealth }
                       : current,
                   )
                 }
