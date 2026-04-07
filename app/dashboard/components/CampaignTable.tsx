@@ -3,7 +3,24 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import StatusPill from "./StatusPill";
-import type { Campaign } from "./data";
+
+type Campaign = {
+  id: string;
+  clientId: string;
+  client: string;
+  name: string;
+  status: "review" | "generating" | "approved";
+  statusLabel: string;
+  progress: number;
+  due: string;
+  urgent: boolean;
+  agents: string[];
+  briefId: string;
+  lead: string;
+  budget: string;
+  risk: "Low" | "Medium" | "High";
+  deliverableCount: number;
+};
 
 export default function CampaignTable({
   campaigns,
