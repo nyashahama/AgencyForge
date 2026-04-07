@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 import { DASHBOARD_NAV_ITEMS, getDashboardNavItem } from "./navigation";
 
@@ -17,7 +19,14 @@ export default function DashboardHeader({
   user: User;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
   const current = getDashboardNavItem(pathname);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   return (
     <header className="border-b border-[var(--border)]">
@@ -35,6 +44,9 @@ export default function DashboardHeader({
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <ThemeToggle />
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            Sign out
+          </Button>
         </div>
       </div>
       <div className="overflow-x-auto px-4 pb-4 sm:px-6">
