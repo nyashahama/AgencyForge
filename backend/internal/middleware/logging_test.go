@@ -14,7 +14,7 @@ func TestLogger_IncludesRequestID(t *testing.T) {
 	var buffer bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buffer, nil))
 
-	handler := Logger(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := Logger(logger, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/apierr"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/authctx"
+	"github.com/nyashahama/AgencyForge/backend/internal/platform/authz"
 	platformrequest "github.com/nyashahama/AgencyForge/backend/internal/platform/request"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/response"
 )
@@ -85,6 +86,8 @@ func (h *Handler) CreatePlaybook(w http.ResponseWriter, r *http.Request) {
 	item, err := h.service.CreatePlaybook(r.Context(), principal, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case errors.Is(err, ErrPlaybookNameUsed):
 			apierr.Write(w, apierr.Conflict("PLAYBOOK_NAME_USED", "playbook name already exists"))
 		case isValidationError(err):
@@ -120,6 +123,8 @@ func (h *Handler) UpdatePlaybook(w http.ResponseWriter, r *http.Request) {
 	item, err := h.service.UpdatePlaybook(r.Context(), principal, playbookID, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case errors.Is(err, ErrPlaybookNotFound):
 			apierr.Write(w, apierr.NotFound("PLAYBOOK_NOT_FOUND", "playbook not found"))
 		case errors.Is(err, ErrPlaybookNameUsed):
@@ -167,6 +172,8 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	items, err := h.service.UpdateSettings(r.Context(), principal, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case isValidationError(err):
 			apierr.Write(w, apierr.Invalid("VALIDATION_ERROR", err.Error()))
 		default:

@@ -14,6 +14,7 @@ import (
 	"github.com/nyashahama/AgencyForge/backend/db/gen"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/activity"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/authctx"
+	"github.com/nyashahama/AgencyForge/backend/internal/platform/authz"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/database"
 	platformrequest "github.com/nyashahama/AgencyForge/backend/internal/platform/request"
 )
@@ -108,6 +109,9 @@ func (s *Service) Get(ctx context.Context, principal authctx.Principal, campaign
 func (s *Service) Create(ctx context.Context, principal authctx.Principal, input CreateInput) (*Detail, error) {
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("campaign service is not configured with a database")
+	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
 	}
 
 	clientID, err := parseRequiredUUID(input.ClientID, "client_id")
@@ -262,6 +266,9 @@ func (s *Service) Create(ctx context.Context, principal authctx.Principal, input
 func (s *Service) Update(ctx context.Context, principal authctx.Principal, campaignID uuid.UUID, input UpdateInput) (*Detail, error) {
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("campaign service is not configured with a database")
+	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
 	}
 
 	return database.InTx(ctx, s.db, func(tx pgx.Tx) (*Detail, error) {
@@ -498,6 +505,9 @@ func (s *Service) Update(ctx context.Context, principal authctx.Principal, campa
 func (s *Service) Advance(ctx context.Context, principal authctx.Principal, campaignID uuid.UUID, input AdvanceInput) (*Detail, error) {
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("campaign service is not configured with a database")
+	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
 	}
 
 	note := strings.TrimSpace(input.Note)

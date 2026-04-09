@@ -16,20 +16,11 @@ import type { Client } from "@/lib/api/client";
 type ClientHealth = "strong" | "watch" | "risk";
 
 function formatMrr(cents: number): string {
-  return `$${Math.round(cents / 100)}k`;
-}
-
-function formatTimeAgo(dateStr: string | undefined): string {
-  if (!dateStr) return "No activity";
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 60) return `${diffMins} min ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
 }
 
 function mapApiClient(c: Client) {
@@ -74,6 +65,27 @@ export default function ClientsPage() {
     fetchClients();
   }, [fetchClients]);
 
+  const handleSaveClient = async () => {
+    if (!accessToken || !selectedClient) return;
+
+    try {
+      await clientsApi.update(
+        selectedClient.id,
+        {
+          health: selectedClient.health,
+          notes: selectedClient.notes,
+          touchpoint_note: note.trim() || undefined,
+        },
+        accessToken,
+      );
+      setSelectedClient(null);
+      setNote("");
+      await fetchClients();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save client");
+    }
+  };
+
   const healthyCount = clients.filter((c) => c.health === "strong").length;
   const watchCount = clients.filter((c) => c.health !== "strong").length;
   const totalApprovals = clients.reduce((sum, c) => sum + c.openApprovals, 0);
@@ -98,6 +110,11 @@ export default function ClientsPage() {
         tone="from-cyan-300/20 to-transparent"
       />
       <div className="space-y-6">
+        {error ? (
+          <div className="rounded-[22px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+            {error}
+          </div>
+        ) : null}
         <DashboardKpiGrid
           items={[
             {
@@ -198,10 +215,7 @@ export default function ClientsPage() {
               </Button>
               <Button
                 variant="accent"
-                onClick={() => {
-                  setSelectedClient(null);
-                  setNote("");
-                }}
+                onClick={handleSaveClient}
               >
                 Save account
               </Button>

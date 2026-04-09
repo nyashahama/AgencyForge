@@ -64,6 +64,7 @@ function mapApiCampaign(c: CampaignSummary) {
     progress: c.progress,
     due: formatDue(c.due_at),
     dueAt: c.due_at,
+    dueInput: c.due_at ? c.due_at.slice(0, 10) : "",
     briefId: c.brief_id ?? "",
     lead: c.owner_email,
     budget: formatCurrency(c.budget_cents, c.budget_currency),
@@ -152,6 +153,29 @@ export default function CampaignsPage() {
     }
   };
 
+  const handleSaveCampaign = async () => {
+    if (!accessToken || !selectedCampaign) return;
+
+    try {
+      const budgetValue = selectedCampaign.budget.replace(/[^0-9]/g, "");
+      await campaignsApi.update(
+        selectedCampaign.id,
+        {
+          name: selectedCampaign.name,
+          budget_cents: budgetValue ? parseInt(budgetValue, 10) * 100 : 0,
+          due_at: selectedCampaign.dueInput
+            ? new Date(`${selectedCampaign.dueInput}T00:00:00.000Z`).toISOString()
+            : "",
+        },
+        accessToken,
+      );
+      setSelectedCampaign(null);
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save campaign");
+    }
+  };
+
   if (loading) {
     return (
       <DashboardShell>
@@ -176,6 +200,11 @@ export default function CampaignsPage() {
         tone="from-fuchsia-400/20 to-transparent"
       />
       <div className="space-y-6">
+        {error ? (
+          <div className="rounded-[22px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+            {error}
+          </div>
+        ) : null}
         <DashboardKpiGrid
           items={[
             {
@@ -358,7 +387,7 @@ export default function CampaignsPage() {
               </Button>
               <Button
                 variant="accent"
-                onClick={() => setSelectedCampaign(null)}
+                onClick={handleSaveCampaign}
               >
                 Save changes
               </Button>
@@ -393,10 +422,11 @@ export default function CampaignsPage() {
             <div>
               <label className="mb-2 block text-sm font-medium">Due</label>
               <Input
-                value={selectedCampaign.due}
+                type="date"
+                value={selectedCampaign.dueInput}
                 onChange={(event) =>
                   setSelectedCampaign((current) =>
-                    current ? { ...current, due: event.target.value } : current,
+                    current ? { ...current, dueInput: event.target.value } : current,
                   )
                 }
               />

@@ -1,9 +1,11 @@
 package request
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -14,9 +16,10 @@ import (
 )
 
 const (
-	DefaultPage    = 1
-	DefaultPerPage = 20
-	MaxPerPage     = 100
+	DefaultPage      = 1
+	DefaultPerPage   = 20
+	MaxPerPage       = 100
+	maxJSONBodyBytes = 1 << 20
 )
 
 var ErrInvalidUUIDParam = errors.New("invalid uuid route parameter")
@@ -27,9 +30,25 @@ type Pagination struct {
 }
 
 func DecodeJSON(r *http.Request, target any) error {
-	decoder := json.NewDecoder(r.Body)
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxJSONBodyBytes+1))
+	if err != nil {
+		return err
+	}
+	if len(body) > maxJSONBodyBytes {
+		return fmt.Errorf("request body must not exceed %d bytes", maxJSONBodyBytes)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return errors.New("request body must contain only a single JSON value")
+	}
+
+	return nil
 }
 
 func UUIDPathParam(r *http.Request, key string) (uuid.UUID, error) {

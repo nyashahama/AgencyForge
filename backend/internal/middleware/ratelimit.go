@@ -18,20 +18,26 @@ type rateLimitEntry struct {
 }
 
 type RateLimiter struct {
-	maxRequests int
-	window      time.Duration
-	now         func() time.Time
+	maxRequests       int
+	window            time.Duration
+	trustProxyHeaders bool
+	now               func() time.Time
 
 	mu      sync.Mutex
 	entries map[string]rateLimitEntry
 }
 
 func NewRateLimiter(maxRequests int, window time.Duration) *RateLimiter {
+	return NewRateLimiterWithProxyTrust(maxRequests, window, false)
+}
+
+func NewRateLimiterWithProxyTrust(maxRequests int, window time.Duration, trustProxyHeaders bool) *RateLimiter {
 	return &RateLimiter{
-		maxRequests: maxRequests,
-		window:      window,
-		now:         time.Now,
-		entries:     make(map[string]rateLimitEntry),
+		maxRequests:       maxRequests,
+		window:            window,
+		trustProxyHeaders: trustProxyHeaders,
+		now:               time.Now,
+		entries:           make(map[string]rateLimitEntry),
 	}
 }
 
@@ -42,7 +48,7 @@ func (l *RateLimiter) Middleware() func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			allowed, retryAfter := l.allow(limitKey(r))
+			allowed, retryAfter := l.allow(limitKey(r, l.trustProxyHeaders))
 			if !allowed {
 				w.Header().Set("Retry-After", retryAfter)
 				response.Error(w, http.StatusTooManyRequests, "RATE_LIMITED", "too many requests")
@@ -91,20 +97,22 @@ func (l *RateLimiter) pruneExpiredLocked(now time.Time) {
 	}
 }
 
-func limitKey(r *http.Request) string {
-	return r.URL.Path + "|" + clientIP(r)
+func limitKey(r *http.Request, trustProxyHeaders bool) string {
+	return r.URL.Path + "|" + clientIP(r, trustProxyHeaders)
 }
 
-func clientIP(r *http.Request) string {
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
-		first := strings.TrimSpace(strings.Split(forwarded, ",")[0])
-		if first != "" {
-			return first
+func clientIP(r *http.Request, trustProxyHeaders bool) string {
+	if trustProxyHeaders {
+		if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+			first := strings.TrimSpace(strings.Split(forwarded, ",")[0])
+			if first != "" {
+				return first
+			}
 		}
-	}
 
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		return realIP
+		if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+			return realIP
+		}
 	}
 
 	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))

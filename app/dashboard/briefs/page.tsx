@@ -9,10 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
 import { useAuth } from "@/lib/auth/session";
-import { briefs as briefsApi, campaigns as campaignsApi } from "@/lib/api/endpoints";
-import type { Brief, CampaignSummary } from "@/lib/api/client";
+import { briefs as briefsApi } from "@/lib/api/endpoints";
+import type { Brief } from "@/lib/api/client";
 
-type BriefStatus = "new" | "processing" | "ready" | "blocked";
+type BriefStatus = "new" | "processing" | "ready" | "blocked" | "launched";
 
 function formatTimeAgo(dateStr: string): string {
   const date = new Date(dateStr);
@@ -67,30 +67,15 @@ export default function BriefsPage() {
     fetchBriefs();
   }, [fetchBriefs]);
 
-  const handleAdvanceBrief = async (briefId: string) => {
-    if (!accessToken) return;
-    try {
-      await briefsApi.update(briefId, { status: "processing" }, accessToken);
-      await fetchBriefs();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to advance brief");
-    }
-  };
-
-  const handleCreateCampaign = async (briefId: string) => {
+  const handleLaunchBrief = async (briefId: string) => {
     if (!accessToken) return;
     const brief = briefs.find((b) => b.id === briefId);
     if (!brief) return;
     try {
-      await campaignsApi.create({
-        client_id: brief.clientId,
-        brief_id: briefId,
-        name: brief.title,
-        status: "draft",
-      }, accessToken);
+      await briefsApi.launch(briefId, { campaign_name: brief.title }, accessToken);
       await fetchBriefs();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create campaign");
+      setError(err instanceof Error ? err.message : "Failed to launch brief");
     }
   };
 
@@ -105,8 +90,8 @@ export default function BriefsPage() {
   }
 
   const newCount = briefs.filter((b) => b.status === "new").length;
-  const readyCount = briefs.filter((b) => b.status === "ready").length;
-  const blockedCount = briefs.filter((b) => b.status === "blocked").length;
+  const launchedCount = briefs.filter((b) => b.status === "launched").length;
+  const activeCount = briefs.length - launchedCount;
   const avgPages = briefs.length > 0 ? (briefs.reduce((sum, b) => sum + b.pages, 0) / briefs.length).toFixed(1) : "0";
 
   return (
@@ -118,6 +103,11 @@ export default function BriefsPage() {
         tone="from-sky-400/20 to-transparent"
       />
       <div className="space-y-6">
+        {error ? (
+          <div className="rounded-[22px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+            {error}
+          </div>
+        ) : null}
         <DashboardKpiGrid
           items={[
             {
@@ -126,14 +116,14 @@ export default function BriefsPage() {
               note: "Briefs still waiting for normalization",
             },
             {
-              label: "Ready to run",
-              value: String(readyCount),
-              note: "Items that can move straight into campaign assembly",
+              label: "In queue",
+              value: String(activeCount),
+              note: "Briefs still moving through intake and preparation",
             },
             {
-              label: "Blocked",
-              value: String(blockedCount),
-              note: "Intake items with unresolved compliance or context issues",
+              label: "Launched",
+              value: String(launchedCount),
+              note: "Briefs already converted into active campaign execution",
             },
             {
               label: "Avg. file depth",
@@ -201,9 +191,9 @@ export default function BriefsPage() {
                       <StatusPill
                         label={brief.status}
                         tone={
-                          brief.status === "ready"
+                          brief.status === "launched"
                             ? "success"
-                            : brief.status === "blocked"
+                          : brief.status === "blocked"
                               ? "danger"
                               : brief.status === "processing"
                                 ? "info"
@@ -223,22 +213,13 @@ export default function BriefsPage() {
                         <Button size="sm" variant="subtle" onClick={() => setSelectedBrief(brief)}>
                           View
                         </Button>
-                        {brief.status !== "ready" ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAdvanceBrief(brief.id)}
-                          >
-                            Advance
-                          </Button>
-                        ) : null}
-                        {brief.status === "ready" ? (
+                        {brief.status !== "launched" ? (
                           <Button
                             size="sm"
                             variant="accent"
-                            onClick={() => handleCreateCampaign(brief.id)}
+                            onClick={() => handleLaunchBrief(brief.id)}
                           >
-                            Create campaign
+                            Launch campaign
                           </Button>
                         ) : null}
                       </div>
@@ -281,27 +262,17 @@ export default function BriefsPage() {
               <Button variant="ghost" onClick={() => setSelectedBrief(null)}>
                 Close
               </Button>
-              {selectedBrief.status === "ready" ? (
+              {selectedBrief.status !== "launched" ? (
                 <Button
                   variant="accent"
                   onClick={() => {
-                    handleCreateCampaign(selectedBrief.id);
+                    handleLaunchBrief(selectedBrief.id);
                     setSelectedBrief(null);
                   }}
                 >
                   Launch campaign
                 </Button>
-              ) : (
-                <Button
-                  variant="accent"
-                  onClick={() => {
-                    handleAdvanceBrief(selectedBrief.id);
-                    setSelectedBrief(null);
-                  }}
-                >
-                  Advance intake
-                </Button>
-              )}
+              ) : null}
             </>
           ) : null
         }

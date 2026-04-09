@@ -25,6 +25,28 @@ func TestDecodeJSON(t *testing.T) {
 	}
 }
 
+func TestDecodeJSON_RejectsTrailingJSON(t *testing.T) {
+	req := httptest.NewRequest("POST", "/", strings.NewReader(`{"name":"Meridian"}{"name":"Extra"}`))
+
+	var payload struct {
+		Name string `json:"name"`
+	}
+	if err := DecodeJSON(req, &payload); err == nil {
+		t.Fatal("DecodeJSON() error = nil, want trailing JSON error")
+	}
+}
+
+func TestDecodeJSON_RejectsOversizedBody(t *testing.T) {
+	req := httptest.NewRequest("POST", "/", strings.NewReader(`{"name":"`+strings.Repeat("a", maxJSONBodyBytes)+`"}`))
+
+	var payload struct {
+		Name string `json:"name"`
+	}
+	if err := DecodeJSON(req, &payload); err == nil {
+		t.Fatal("DecodeJSON() error = nil, want oversized body error")
+	}
+}
+
 func TestUUIDPathParam(t *testing.T) {
 	id := uuid.New()
 	req := httptest.NewRequest("GET", "/", nil)

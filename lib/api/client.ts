@@ -15,12 +15,15 @@ export interface ApiResponse<T> {
   request_id?: string;
 }
 
-export interface Session {
+export interface AuthSession {
   access_token: string;
-  refresh_token: string;
   token_type: string;
   expires_in: number;
   user: SessionUser;
+}
+
+export interface Session extends AuthSession {
+  refresh_token: string;
 }
 
 export interface SessionUser {
@@ -165,24 +168,60 @@ export interface ActivityItem {
   occurred_at: string;
 }
 
-export interface DashboardAnalytics {
-  active_campaigns: number;
-  pending_reviews: number;
-  briefs_in_intake: number;
-  live_portals: number;
-  recent_activity: ActivityItem[];
+export interface DashboardOverview {
+  live_campaigns: number;
+  reviews_due: number;
+  briefs_processed: number;
+  active_clients: number;
+  active_specialists: number;
+  pending_approvals: number;
+  weekly_output: number;
+  avg_completion_percent: number;
+  approval_rate: number;
+  approval_latency_days: number;
+  avg_turnaround_days: number;
 }
 
 export interface ThroughputDatum {
   day: string;
+  day_label: string;
   campaigns: number;
 }
 
 export interface SpecialistLoad {
-  specialist_code: string;
-  specialist_name: string;
-  active_assignments: number;
-  load_units: number;
+  id: string;
+  name: string;
+  code: string;
+  specialty_type: string;
+  status: string;
+  color: string;
+  load: number;
+  open_assignments: number;
+  blocked_assignments: number;
+  active_campaigns: number;
+}
+
+export interface AnalyticsActivityItem {
+  id: string;
+  event_type: string;
+  message: string;
+  icon: string;
+  time_label: string;
+  metadata?: Record<string, unknown>;
+  occurred_at: string;
+}
+
+export interface CampaignStatusCount {
+  status: string;
+  count: number;
+}
+
+export interface DashboardAnalytics {
+  overview: DashboardOverview;
+  throughput: ThroughputDatum[];
+  specialists: SpecialistLoad[];
+  recent_activity: AnalyticsActivityItem[];
+  campaign_statuses: CampaignStatusCount[];
 }
 
 class ApiClient {

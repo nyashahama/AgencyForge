@@ -17,6 +17,7 @@ import (
 	"github.com/nyashahama/AgencyForge/backend/db/gen"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/activity"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/authctx"
+	"github.com/nyashahama/AgencyForge/backend/internal/platform/authz"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/database"
 	platformrequest "github.com/nyashahama/AgencyForge/backend/internal/platform/request"
 )
@@ -104,6 +105,9 @@ func (s *Service) CreatePlaybook(ctx context.Context, principal authctx.Principa
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("workspace service is not configured with a database")
 	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
+	}
 
 	normalized, err := normalizeCreatePlaybook(input)
 	if err != nil {
@@ -160,6 +164,9 @@ func (s *Service) CreatePlaybook(ctx context.Context, principal authctx.Principa
 func (s *Service) UpdatePlaybook(ctx context.Context, principal authctx.Principal, playbookID uuid.UUID, input UpdatePlaybookInput) (*Playbook, error) {
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("workspace service is not configured with a database")
+	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
 	}
 
 	return database.InTx(ctx, s.db, func(tx pgx.Tx) (*Playbook, error) {
@@ -249,6 +256,9 @@ func (s *Service) GetSettings(ctx context.Context, principal authctx.Principal) 
 func (s *Service) UpdateSettings(ctx context.Context, principal authctx.Principal, input UpdateSettingsInput) ([]SettingGroup, error) {
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("workspace service is not configured with a database")
+	}
+	if err := authz.RequireAdmin(principal); err != nil {
+		return nil, err
 	}
 	if len(input.Items) == 0 {
 		return nil, fmt.Errorf("%w: at least one setting item update is required", ErrValidation)

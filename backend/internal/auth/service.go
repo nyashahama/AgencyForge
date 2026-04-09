@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
@@ -163,7 +165,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*Session, e
 
 	return database.InTx(ctx, s.db, func(tx pgx.Tx) (*Session, error) {
 		queries := s.queries.WithTx(tx)
-		record, err := queries.GetRefreshToken(ctx, strings.TrimSpace(refreshToken))
+		record, err := queries.GetRefreshToken(ctx, hashRefreshToken(refreshToken))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, ErrInvalidRefreshToken
@@ -203,7 +205,7 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 		return errors.New("auth service is not configured with a database")
 	}
 
-	if err := s.queries.DeleteRefreshToken(ctx, strings.TrimSpace(refreshToken)); err != nil {
+	if err := s.queries.DeleteRefreshToken(ctx, hashRefreshToken(refreshToken)); err != nil {
 		return fmt.Errorf("delete refresh token: %w", err)
 	}
 
@@ -248,7 +250,7 @@ func (s *Service) issueSession(ctx context.Context, queries authQuerier, user au
 	}
 
 	if _, err := queries.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
-		Token:     refreshToken,
+		Token:     hashRefreshToken(refreshToken),
 		UserID:    user.ID,
 		ExpiresAt: time.Now().Add(s.refreshExpiry),
 	}); err != nil {
@@ -262,6 +264,11 @@ func (s *Service) issueSession(ctx context.Context, queries authQuerier, user au
 		ExpiresIn:    int64(s.jwtExpiry / time.Second),
 		User:         buildSessionUser(user),
 	}, nil
+}
+
+func hashRefreshToken(refreshToken string) string {
+	digest := sha256.Sum256([]byte(strings.TrimSpace(refreshToken)))
+	return hex.EncodeToString(digest[:])
 }
 
 type authQuerier interface {

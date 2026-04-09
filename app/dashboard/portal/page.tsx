@@ -68,12 +68,33 @@ export default function PortalPage() {
 
   const handleToggleShare = async (portalId: string, currentState: string) => {
     if (!accessToken) return;
-    const newState = currentState === "Published" ? "draft" : "published";
     try {
-      await portalsApi.update(portalId, { share_state: newState }, accessToken);
+      if (currentState === "Published") {
+        await portalsApi.update(portalId, { share_state: "draft" }, accessToken);
+      } else {
+        await portalsApi.publish(portalId, {}, accessToken);
+      }
       await fetchPortals();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update portal");
+    }
+  };
+
+  const handleSavePortal = async () => {
+    if (!accessToken || !selectedPortal) return;
+    try {
+      await portalsApi.update(
+        selectedPortal.id,
+        {
+          theme: selectedPortal.theme,
+          review_mode: selectedPortal.reviewMode,
+        },
+        accessToken,
+      );
+      setSelectedPortal(null);
+      await fetchPortals();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save portal");
     }
   };
 
@@ -99,6 +120,11 @@ export default function PortalPage() {
         tone="from-emerald-300/20 to-transparent"
       />
       <div className="space-y-6">
+        {error ? (
+          <div className="rounded-[22px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+            {error}
+          </div>
+        ) : null}
         <DashboardKpiGrid
           items={[
             {
@@ -172,7 +198,7 @@ export default function PortalPage() {
               </Button>
               <Button
                 variant="accent"
-                onClick={() => setSelectedPortal(null)}
+                onClick={handleSavePortal}
               >
                 Save portal
               </Button>

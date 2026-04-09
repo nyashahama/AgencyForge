@@ -8,6 +8,7 @@ import (
 
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/apierr"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/authctx"
+	"github.com/nyashahama/AgencyForge/backend/internal/platform/authz"
 	platformrequest "github.com/nyashahama/AgencyForge/backend/internal/platform/request"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/response"
 )
@@ -85,6 +86,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	item, err := h.service.Create(r.Context(), principal, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case errors.Is(err, ErrClientNotFound):
 			apierr.Write(w, apierr.NotFound("CLIENT_NOT_FOUND", "client not found"))
 		case errors.Is(err, ErrBriefNotFound):
@@ -122,6 +125,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	item, err := h.service.Update(r.Context(), principal, campaignID, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case errors.Is(err, ErrCampaignNotFound):
 			apierr.Write(w, apierr.NotFound("CAMPAIGN_NOT_FOUND", "campaign not found"))
 		case errors.Is(err, ErrClientNotFound):
@@ -161,6 +166,8 @@ func (h *Handler) Advance(w http.ResponseWriter, r *http.Request) {
 	item, err := h.service.Advance(r.Context(), principal, campaignID, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case errors.Is(err, ErrCampaignNotFound):
 			apierr.Write(w, apierr.NotFound("CAMPAIGN_NOT_FOUND", "campaign not found"))
 		case errors.Is(err, ErrInvalidTransition):

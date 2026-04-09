@@ -8,6 +8,7 @@ import (
 
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/apierr"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/authctx"
+	"github.com/nyashahama/AgencyForge/backend/internal/platform/authz"
 	platformrequest "github.com/nyashahama/AgencyForge/backend/internal/platform/request"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/response"
 )
@@ -91,6 +92,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	item, err := h.service.Update(r.Context(), principal, portalID, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case errors.Is(err, ErrPortalNotFound):
 			apierr.Write(w, apierr.NotFound("PORTAL_NOT_FOUND", "portal not found"))
 		case isValidationError(err):
@@ -126,6 +129,8 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	item, err := h.service.Publish(r.Context(), principal, portalID, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case errors.Is(err, ErrPortalNotFound):
 			apierr.Write(w, apierr.NotFound("PORTAL_NOT_FOUND", "portal not found"))
 		case isValidationError(err):

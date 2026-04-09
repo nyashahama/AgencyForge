@@ -34,6 +34,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
+  const [savingGroup, setSavingGroup] = useState<string | null>(null);
 
   const fetchSettings = useCallback(async () => {
     if (!accessToken) return;
@@ -52,6 +53,39 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  const handleEditToggle = async (groupId: string) => {
+    if (editingGroup !== groupId) {
+      setEditingGroup(groupId);
+      return;
+    }
+
+    const group = settings.find((item) => item.id === groupId);
+    if (!accessToken || !group) {
+      setEditingGroup(null);
+      return;
+    }
+
+    try {
+      setSavingGroup(groupId);
+      await workspace.settings.update(
+        {
+          items: group.items.map((item) => ({
+            group_key: group.key,
+            item_key: item.key,
+            value: item.value,
+          })),
+        },
+        accessToken,
+      );
+      setEditingGroup(null);
+      await fetchSettings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save settings");
+    } finally {
+      setSavingGroup(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -72,6 +106,11 @@ export default function SettingsPage() {
         tone="from-rose-300/20 to-transparent"
       />
       <div className="grid gap-4 lg:grid-cols-3">
+        {error ? (
+          <div className="lg:col-span-3 rounded-[22px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+            {error}
+          </div>
+        ) : null}
         {settings.map((group) => (
           <Card key={group.id}>
             <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -82,9 +121,10 @@ export default function SettingsPage() {
               <Button
                 size="sm"
                 variant={editingGroup === group.id ? "default" : "ghost"}
-                onClick={() => setEditingGroup((current) => (current === group.id ? null : group.id))}
+                onClick={() => void handleEditToggle(group.id)}
+                disabled={savingGroup === group.id}
               >
-                {editingGroup === group.id ? "Done" : "Edit"}
+                {savingGroup === group.id ? "Saving..." : editingGroup === group.id ? "Save" : "Edit"}
               </Button>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-[var(--foreground-muted)]">

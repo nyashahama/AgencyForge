@@ -17,6 +17,8 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 	t.Setenv("AUTH_RATE_LIMIT_WINDOW", "2m")
 	t.Setenv("APP_BASE_URL", "http://localhost:3000")
 	t.Setenv("ALLOWED_ORIGINS", "http://localhost:3000,https://agencyforge.app")
+	t.Setenv("EXPOSE_METRICS", "true")
+	t.Setenv("TRUST_PROXY_HEADERS", "true")
 
 	cfg, err := Load()
 	if err != nil {
@@ -49,6 +51,14 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 
 	if len(cfg.AllowedOrigins) != 2 {
 		t.Fatalf("AllowedOrigins len = %d, want 2", len(cfg.AllowedOrigins))
+	}
+
+	if !cfg.ExposeMetrics {
+		t.Fatal("ExposeMetrics = false, want true")
+	}
+
+	if !cfg.TrustProxyHeaders {
+		t.Fatal("TrustProxyHeaders = false, want true")
 	}
 }
 
@@ -89,6 +99,14 @@ func TestLoad_Defaults(t *testing.T) {
 	if len(cfg.AllowedOrigins) != 1 || cfg.AllowedOrigins[0] != "http://localhost:3000" {
 		t.Fatalf("AllowedOrigins = %#v, want fallback app origin", cfg.AllowedOrigins)
 	}
+
+	if cfg.ExposeMetrics {
+		t.Fatal("ExposeMetrics = true, want false")
+	}
+
+	if cfg.TrustProxyHeaders {
+		t.Fatal("TrustProxyHeaders = true, want false")
+	}
 }
 
 func TestLoad_InvalidDuration(t *testing.T) {
@@ -128,6 +146,28 @@ func TestLoad_ShortJWTSecret(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable")
 	t.Setenv("JWT_SECRET", "short-secret")
 	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want error")
+	}
+}
+
+func TestLoad_InvalidExposeMetrics(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable")
+	t.Setenv("JWT_SECRET", strings.Repeat("z", 40))
+	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+	t.Setenv("EXPOSE_METRICS", "definitely")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want error")
+	}
+}
+
+func TestLoad_InvalidTrustProxyHeaders(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable")
+	t.Setenv("JWT_SECRET", strings.Repeat("z", 40))
+	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+	t.Setenv("TRUST_PROXY_HEADERS", "sometimes")
 
 	if _, err := Load(); err == nil {
 		t.Fatal("Load() error = nil, want error")
