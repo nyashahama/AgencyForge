@@ -14,6 +14,7 @@ import { auth as authApi } from "@/lib/api/endpoints";
 interface SessionState {
   user: SessionUser | null;
   accessToken: string | null;
+  expiresAt: number | null;
   isLoading: boolean;
   isAuthenticated: boolean;
 }
@@ -33,15 +34,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SessionState>({
     user: null,
     accessToken: null,
+    expiresAt: null,
     isLoading: true,
     isAuthenticated: false,
   });
 
-  const setSession = useCallback((user: SessionUser, accessToken: string) => {
-    apiClient.setAccessToken(accessToken);
+  const setSession = useCallback((session: {
+    user: SessionUser;
+    access_token: string;
+    expires_in: number;
+  }) => {
+    const expiresAt = Date.now() + session.expires_in * 1000;
+
+    apiClient.setAccessToken(session.access_token);
     setState({
-      user,
-      accessToken,
+      user: session.user,
+      accessToken: session.access_token,
+      expiresAt,
       isLoading: false,
       isAuthenticated: true,
     });
@@ -52,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({
       user: null,
       accessToken: null,
+      expiresAt: null,
       isLoading: false,
       isAuthenticated: false,
     });
@@ -61,13 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, isLoading: true }));
     try {
       const session = await authApi.login({ email, password });
-      const expiresAt = Date.now() + session.expires_in * 1000;
-
-      document.cookie = `af_access_token=${session.access_token}; path=/; samesite=lax; ${process.env.NODE_ENV === "production" ? "secure; " : ""}`;
-      document.cookie = `af_refresh_token=${session.refresh_token}; path=/; httpOnly; samesite=lax; ${process.env.NODE_ENV === "production" ? "secure; " : ""}`;
-      document.cookie = `af_access_token_exp=${expiresAt}; path=/; samesite=lax`;
-
-      setSession(session.user, session.access_token);
+      setSession(session);
     } catch (error) {
       setState((s) => ({ ...s, isLoading: false }));
       throw error;
@@ -78,13 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, isLoading: true }));
     try {
       const session = await authApi.register({ name, email, password });
-      const expiresAt = Date.now() + session.expires_in * 1000;
-
-      document.cookie = `af_access_token=${session.access_token}; path=/; samesite=lax; ${process.env.NODE_ENV === "production" ? "secure; " : ""}`;
-      document.cookie = `af_refresh_token=${session.refresh_token}; path=/; httpOnly; samesite=lax; ${process.env.NODE_ENV === "production" ? "secure; " : ""}`;
-      document.cookie = `af_access_token_exp=${expiresAt}; path=/; samesite=lax`;
-
-      setSession(session.user, session.access_token);
+      setSession(session);
     } catch (error) {
       setState((s) => ({ ...s, isLoading: false }));
       throw error;
@@ -93,68 +91,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      const refreshToken = getRefreshTokenFromCookie();
-      if (refreshToken) {
-        await authApi.logout({ refresh_token: refreshToken });
-      }
+      await authApi.logout();
     } catch {
     } finally {
-      document.cookie = "af_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
-      document.cookie = "af_refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
-      document.cookie = "af_access_token_exp=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
       clearSessionState();
     }
   }, [clearSessionState]);
 
   const refreshSession = useCallback(async () => {
-    const refreshToken = getRefreshTokenFromCookie();
-    if (!refreshToken) {
-      clearSessionState();
-      return;
-    }
-
     try {
-      const session = await authApi.refresh({ refresh_token: refreshToken });
-      const expiresAt = Date.now() + session.expires_in * 1000;
-
-      document.cookie = `af_access_token=${session.access_token}; path=/; samesite=lax; ${process.env.NODE_ENV === "production" ? "secure; " : ""}`;
-      document.cookie = `af_refresh_token=${session.refresh_token}; path=/; httpOnly; samesite=lax; ${process.env.NODE_ENV === "production" ? "secure; " : ""}`;
-      document.cookie = `af_access_token_exp=${expiresAt}; path=/; samesite=lax`;
-
-      setSession(session.user, session.access_token);
+      const session = await authApi.session();
+      setSession(session);
     } catch {
-      document.cookie = "af_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
-      document.cookie = "af_refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
-      document.cookie = "af_access_token_exp=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
       clearSessionState();
     }
   }, [setSession, clearSessionState]);
 
   useEffect(() => {
     const initSession = async () => {
-      const accessToken = getAccessTokenFromCookie();
-      const expiresAt = getExpiresAtFromCookie();
-
-      if (!accessToken || !expiresAt) {
-        setState((s) => ({ ...s, isLoading: false }));
-        return;
-      }
-
-      if (Date.now() >= expiresAt - TOKEN_REFRESH_THRESHOLD) {
-        await refreshSession();
-        return;
-      }
-
       try {
-        const user = await authApi.me(accessToken);
-        setSession(user, accessToken);
+        const session = await authApi.session();
+        setSession(session);
       } catch {
-        await refreshSession();
+        clearSessionState();
       }
     };
 
-    initSession();
-  }, [setSession, refreshSession]);
+    void initSession();
+  }, [setSession, clearSessionState]);
+
+  useEffect(() => {
+    if (!state.isAuthenticated || !state.expiresAt) {
+      return;
+    }
+
+    const refreshIn = Math.max(
+      state.expiresAt - Date.now() - TOKEN_REFRESH_THRESHOLD,
+      0,
+    );
+
+    const timeoutId = window.setTimeout(() => {
+      void refreshSession();
+    }, refreshIn);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [refreshSession, state.expiresAt, state.isAuthenticated]);
 
   return (
     <AuthContext.Provider
@@ -177,22 +160,4 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-}
-
-function getAccessTokenFromCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|;\s*)af_access_token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-function getRefreshTokenFromCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|;\s*)af_refresh_token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-function getExpiresAtFromCookie(): number | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|;\s*)af_access_token_exp=([^;]*)/);
-  return match ? parseInt(decodeURIComponent(match[1]), 10) : null;
 }

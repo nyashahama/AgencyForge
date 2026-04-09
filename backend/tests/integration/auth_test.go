@@ -185,6 +185,49 @@ func TestAuthResponsesIncludeRequestID_Integration(t *testing.T) {
 	}
 }
 
+func TestRefreshTokensAreNotStoredInPlaintext_Integration(t *testing.T) {
+	resetAuthTables(t)
+	router := newAuthTestRouter(t)
+
+	email := "demo+" + strings.ToLower(strings.ReplaceAll(time.Now().UTC().Format("20060102150405.000000"), ".", "")) + "@agencyforge.test"
+
+	registerBody := bytes.NewBufferString(`{"name":"Sophia Lund","email":"` + email + `","password":"password123"}`)
+	registerReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", registerBody)
+	registerRec := httptest.NewRecorder()
+
+	router.ServeHTTP(registerRec, registerReq)
+
+	if registerRec.Code != http.StatusCreated {
+		t.Fatalf("register status = %d, want %d, body = %s", registerRec.Code, http.StatusCreated, registerRec.Body.String())
+	}
+
+	var registerPayload struct {
+		Data struct {
+			RefreshToken string `json:"refresh_token"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(registerRec.Body).Decode(&registerPayload); err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+
+	var storedToken string
+	err := testDB.QueryRow(context.Background(), `
+		SELECT rt.token
+		FROM refresh_tokens rt
+		JOIN users u ON u.id = rt.user_id
+		WHERE u.email = $1
+		ORDER BY rt.created_at DESC
+		LIMIT 1
+	`, email).Scan(&storedToken)
+	if err != nil {
+		t.Fatalf("query refresh token: %v", err)
+	}
+
+	if storedToken == registerPayload.Data.RefreshToken {
+		t.Fatal("refresh token was stored in plaintext")
+	}
+}
+
 func TestAuthRateLimit_Integration(t *testing.T) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {

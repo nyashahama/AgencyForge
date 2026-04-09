@@ -16,6 +16,7 @@ import (
 	"github.com/nyashahama/AgencyForge/backend/db/gen"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/activity"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/authctx"
+	"github.com/nyashahama/AgencyForge/backend/internal/platform/authz"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/database"
 	platformrequest "github.com/nyashahama/AgencyForge/backend/internal/platform/request"
 )
@@ -87,6 +88,9 @@ func (s *Service) Create(ctx context.Context, principal authctx.Principal, input
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("client service is not configured with a database")
 	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
+	}
 
 	normalized, err := normalizeCreateInput(input)
 	if err != nil {
@@ -152,6 +156,9 @@ func (s *Service) Create(ctx context.Context, principal authctx.Principal, input
 func (s *Service) Update(ctx context.Context, principal authctx.Principal, clientID uuid.UUID, input UpdateInput) (*Detail, error) {
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("client service is not configured with a database")
+	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
 	}
 
 	return database.InTx(ctx, s.db, func(tx pgx.Tx) (*Detail, error) {

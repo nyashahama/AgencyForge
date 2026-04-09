@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -81,5 +82,40 @@ func TestRateLimiter_IsolatedByPathAndClientIP(t *testing.T) {
 	}
 	if thirdRec.Code != http.StatusNoContent {
 		t.Fatalf("third status = %d, want %d", thirdRec.Code, http.StatusNoContent)
+	}
+}
+
+func TestRateLimiter_IgnoresUntrustedForwardedHeaders(t *testing.T) {
+	limiter := NewRateLimiter(2, time.Minute)
+	limiter.now = func() time.Time {
+		return time.Date(2026, time.April, 2, 12, 0, 0, 0, time.UTC)
+	}
+
+	handler := limiter.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+		req.RemoteAddr = "203.0.113.10:4123"
+		req.Header.Set("X-Forwarded-For", "198.51.100."+strconv.Itoa(i+10))
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("request %d status = %d, want %d", i+1, rec.Code, http.StatusNoContent)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+	req.RemoteAddr = "203.0.113.10:4123"
+	req.Header.Set("X-Forwarded-For", "198.51.100.99")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusTooManyRequests)
 	}
 }

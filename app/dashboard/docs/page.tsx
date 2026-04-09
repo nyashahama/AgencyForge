@@ -39,7 +39,7 @@ function mapApiPlaybook(p: Playbook) {
 }
 
 export default function DocsPage() {
-  const { accessToken, user } = useAuth();
+  const { accessToken } = useAuth();
   const [playbooks, setPlaybooks] = useState<ReturnType<typeof mapApiPlaybook>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +84,25 @@ export default function DocsPage() {
     }
   };
 
+  const handleSavePlaybook = async () => {
+    if (!accessToken || !selectedPlaybook) return;
+
+    try {
+      await workspace.playbooks.update(
+        selectedPlaybook.id,
+        {
+          name: selectedPlaybook.name,
+          status: selectedPlaybook.status,
+        },
+        accessToken,
+      );
+      setSelectedPlaybook(null);
+      await fetchPlaybooks();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save playbook");
+    }
+  };
+
   if (loading) {
     return (
       <DashboardShell>
@@ -107,6 +126,11 @@ export default function DocsPage() {
         tone="from-violet-300/20 to-transparent"
       />
       <div className="space-y-6">
+        {error ? (
+          <div className="rounded-[22px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+            {error}
+          </div>
+        ) : null}
         <DashboardKpiGrid
           items={[
             {
@@ -215,7 +239,7 @@ export default function DocsPage() {
               </Button>
               <Button
                 variant="accent"
-                onClick={() => setSelectedPlaybook(null)}
+                onClick={handleSavePlaybook}
               >
                 Save playbook
               </Button>
