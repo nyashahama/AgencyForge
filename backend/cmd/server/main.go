@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -13,7 +14,9 @@ import (
 	"github.com/nyashahama/AgencyForge/backend/internal/campaign"
 	"github.com/nyashahama/AgencyForge/backend/internal/client"
 	"github.com/nyashahama/AgencyForge/backend/internal/config"
+	"github.com/nyashahama/AgencyForge/backend/internal/invite"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/database"
+	platformemail "github.com/nyashahama/AgencyForge/backend/internal/platform/email"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/health"
 	"github.com/nyashahama/AgencyForge/backend/internal/portal"
 	"github.com/nyashahama/AgencyForge/backend/internal/server"
@@ -50,6 +53,11 @@ func main() {
 	campaignService := campaign.NewService(db)
 	portalService := portal.NewService(db)
 	workspaceService := workspace.NewService(db)
+	mailer := platformemail.Mailer(platformemail.NewNoopMailer())
+	if cfg.ResendAPIKey != "" && cfg.EmailFrom != "" {
+		mailer = platformemail.NewResendMailer(cfg.ResendAPIKey, cfg.EmailFrom, http.DefaultClient)
+	}
+	inviteService := invite.NewService(db, mailer, cfg.InviteBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
 
 	handlers := server.Handlers{
 		Health:    health.New(db),
@@ -59,6 +67,7 @@ func main() {
 		Briefs:    brief.NewHandler(briefService),
 		Campaigns: campaign.NewHandler(campaignService),
 		Portals:   portal.NewHandler(portalService),
+		Invites:   invite.NewHandler(inviteService),
 		Workspace: workspace.NewHandler(workspaceService),
 	}
 

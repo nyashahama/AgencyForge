@@ -1,4 +1,4 @@
-import { apiClient, type AuthSession, type Client, type CampaignSummary, type Brief, type Portal, type Playbook, type SettingGroup, type ActivityItem, type DashboardAnalytics, type ThroughputDatum, type SpecialistLoad } from "./client";
+import { apiClient, type AuthSession, type Client, type CampaignSummary, type Brief, type Portal, type Playbook, type SettingGroup, type ActivityItem, type DashboardAnalytics, type ThroughputDatum, type SpecialistLoad, type WorkspaceInvite, type InvitePreview } from "./client";
 
 async function authRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -180,6 +180,27 @@ export const portals = {
 };
 
 export const workspace = {
+  invites: {
+    list: async (accessToken: string): Promise<WorkspaceInvite[]> => {
+      return apiClient.get<WorkspaceInvite[]>("/api/v1/workspace/invites", {}, accessToken);
+    },
+
+    create: async (
+      body: { email: string; role: string },
+      accessToken: string,
+    ): Promise<WorkspaceInvite> => {
+      return apiClient.post<WorkspaceInvite>("/api/v1/workspace/invites", body, accessToken);
+    },
+
+    resend: async (id: string, accessToken: string): Promise<WorkspaceInvite> => {
+      return apiClient.post<WorkspaceInvite>(`/api/v1/workspace/invites/${id}/resend`, undefined, accessToken);
+    },
+
+    revoke: async (id: string, accessToken: string): Promise<void> => {
+      return apiClient.post<void>(`/api/v1/workspace/invites/${id}/revoke`, undefined, accessToken);
+    },
+  },
+
   playbooks: {
     list: async (accessToken: string): Promise<Playbook[]> => {
       return apiClient.get<Playbook[]>("/api/v1/workspace/playbooks", {}, accessToken);
@@ -226,6 +247,22 @@ export const workspace = {
     list: async (accessToken: string): Promise<ActivityItem[]> => {
       return apiClient.get<ActivityItem[]>("/api/v1/workspace/activity", {}, accessToken);
     },
+  },
+};
+
+export const invites = {
+  inspect: async (token: string): Promise<InvitePreview> => {
+    return authRequest<InvitePreview>(`/api/invites/${token}`);
+  },
+
+  accept: async (
+    token: string,
+    body: { name: string; password: string },
+  ): Promise<AuthSession> => {
+    return authRequest<AuthSession>(`/api/invites/${token}/accept`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   },
 };
 

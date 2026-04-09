@@ -35,6 +35,25 @@ export interface SessionUser {
   role: string;
 }
 
+export interface WorkspaceInvite {
+  id: string;
+  email: string;
+  role: string;
+  status: "pending" | "accepted" | "revoked" | "expired";
+  invited_by_name?: string;
+  accepted_at?: string;
+  revoked_at?: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface InvitePreview {
+  email: string;
+  role: string;
+  status: "pending" | "accepted" | "revoked" | "expired";
+  expires_at: string;
+}
+
 export interface CampaignSummary {
   id: string;
   client_id: string;
