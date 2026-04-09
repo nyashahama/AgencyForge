@@ -35,6 +35,13 @@ export const DASHBOARD_NAV_ITEMS = [
     tone: "from-cyan-300/20 to-transparent",
   },
   {
+    href: "/dashboard/team",
+    label: "Team",
+    eyebrow: "Operators",
+    short: "Team",
+    tone: "from-orange-300/20 to-transparent",
+  },
+  {
     href: "/dashboard/portal",
     label: "Portal",
     eyebrow: "Delivery",

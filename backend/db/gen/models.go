@@ -189,6 +189,19 @@ type ClientTouchpoint struct {
 	CreatedAt    time.Time   `json:"created_at"`
 }
 
+type OperatorInvite struct {
+	ID              uuid.UUID          `json:"id"`
+	AgencyID        uuid.UUID          `json:"agency_id"`
+	Email           string             `json:"email"`
+	Role            string             `json:"role"`
+	TokenHash       string             `json:"token_hash"`
+	InvitedByUserID uuid.UUID          `json:"invited_by_user_id"`
+	AcceptedAt      pgtype.Timestamptz `json:"accepted_at"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
+	ExpiresAt       time.Time          `json:"expires_at"`
+	CreatedAt       time.Time          `json:"created_at"`
+}
+
 type Playbook struct {
 	ID          uuid.UUID          `json:"id"`
 	AgencyID    uuid.UUID          `json:"agency_id"`

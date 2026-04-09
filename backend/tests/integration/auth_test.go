@@ -335,6 +335,7 @@ func resetAuthTables(t *testing.T) {
 			client_touchpoints,
 			client_contacts,
 			clients,
+			operator_invites,
 			refresh_tokens,
 			agency_memberships,
 			users,

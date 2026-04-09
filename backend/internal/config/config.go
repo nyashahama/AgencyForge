@@ -13,10 +13,13 @@ type Config struct {
 	Env                   string
 	DatabaseURL           string
 	JWTSecret             string
+	ResendAPIKey          string
+	EmailFrom             string
 	AllowedOrigins        []string
 	JWTExpiry             time.Duration
 	RefreshExpiry         time.Duration
 	AppBaseURL            string
+	InviteBaseURL         string
 	AuthRateLimitRequests int
 	AuthRateLimitWindow   time.Duration
 	ExposeMetrics         bool
@@ -25,11 +28,18 @@ type Config struct {
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:        getEnv("PORT", "8080"),
-		Env:         getEnv("ENV", "development"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		AppBaseURL:  getEnv("APP_BASE_URL", "http://localhost:3000"),
+		Port:          getEnv("PORT", "8080"),
+		Env:           getEnv("ENV", "development"),
+		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		JWTSecret:     os.Getenv("JWT_SECRET"),
+		ResendAPIKey:  os.Getenv("RESEND_API_KEY"),
+		EmailFrom:     os.Getenv("EMAIL_FROM"),
+		AppBaseURL:    getEnv("APP_BASE_URL", "http://localhost:3000"),
+		InviteBaseURL: getEnv("INVITE_BASE_URL", ""),
+	}
+
+	if cfg.InviteBaseURL == "" {
+		cfg.InviteBaseURL = cfg.AppBaseURL
 	}
 
 	var err error
@@ -82,9 +92,10 @@ func Load() (*Config, error) {
 
 func (c *Config) validate() error {
 	required := map[string]string{
-		"DATABASE_URL": c.DatabaseURL,
-		"JWT_SECRET":   c.JWTSecret,
-		"APP_BASE_URL": c.AppBaseURL,
+		"DATABASE_URL":    c.DatabaseURL,
+		"JWT_SECRET":      c.JWTSecret,
+		"APP_BASE_URL":    c.AppBaseURL,
+		"INVITE_BASE_URL": c.InviteBaseURL,
 	}
 
 	var missing []string

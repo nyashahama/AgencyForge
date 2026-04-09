@@ -16,9 +16,12 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 	t.Setenv("AUTH_RATE_LIMIT_REQUESTS", "25")
 	t.Setenv("AUTH_RATE_LIMIT_WINDOW", "2m")
 	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+	t.Setenv("INVITE_BASE_URL", "http://localhost:3000")
 	t.Setenv("ALLOWED_ORIGINS", "http://localhost:3000,https://agencyforge.app")
 	t.Setenv("EXPOSE_METRICS", "true")
 	t.Setenv("TRUST_PROXY_HEADERS", "true")
+	t.Setenv("RESEND_API_KEY", "resend-key")
+	t.Setenv("EMAIL_FROM", "hello@agencyforge.test")
 
 	cfg, err := Load()
 	if err != nil {
@@ -51,6 +54,18 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 
 	if len(cfg.AllowedOrigins) != 2 {
 		t.Fatalf("AllowedOrigins len = %d, want 2", len(cfg.AllowedOrigins))
+	}
+
+	if cfg.InviteBaseURL != "http://localhost:3000" {
+		t.Fatalf("InviteBaseURL = %q, want http://localhost:3000", cfg.InviteBaseURL)
+	}
+
+	if cfg.ResendAPIKey != "resend-key" {
+		t.Fatalf("ResendAPIKey = %q, want resend-key", cfg.ResendAPIKey)
+	}
+
+	if cfg.EmailFrom != "hello@agencyforge.test" {
+		t.Fatalf("EmailFrom = %q, want hello@agencyforge.test", cfg.EmailFrom)
 	}
 
 	if !cfg.ExposeMetrics {
@@ -98,6 +113,10 @@ func TestLoad_Defaults(t *testing.T) {
 
 	if len(cfg.AllowedOrigins) != 1 || cfg.AllowedOrigins[0] != "http://localhost:3000" {
 		t.Fatalf("AllowedOrigins = %#v, want fallback app origin", cfg.AllowedOrigins)
+	}
+
+	if cfg.InviteBaseURL != "http://localhost:3000" {
+		t.Fatalf("InviteBaseURL = %q, want fallback app base url", cfg.InviteBaseURL)
 	}
 
 	if cfg.ExposeMetrics {

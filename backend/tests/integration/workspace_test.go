@@ -18,7 +18,9 @@ import (
 	"github.com/nyashahama/AgencyForge/backend/internal/campaign"
 	"github.com/nyashahama/AgencyForge/backend/internal/client"
 	"github.com/nyashahama/AgencyForge/backend/internal/config"
+	"github.com/nyashahama/AgencyForge/backend/internal/invite"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/database"
+	platformemail "github.com/nyashahama/AgencyForge/backend/internal/platform/email"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/health"
 	"github.com/nyashahama/AgencyForge/backend/internal/portal"
 	"github.com/nyashahama/AgencyForge/backend/internal/server"
@@ -293,6 +295,7 @@ func newWorkspaceTestRouter(t *testing.T) http.Handler {
 	}
 
 	db := &database.Pool{Pool: testDB}
+	inviteService := invite.NewService(db, platformemail.NewNoopMailer(), cfg.AppBaseURL, cfg.JWTSecret, 15*time.Minute, 168*time.Hour)
 	return server.NewRouter(cfg, slog.New(slog.NewTextHandler(os.Stdout, nil)), server.Handlers{
 		Health:    health.New(testDB),
 		Auth:      auth.NewHandler(auth.NewService(db, cfg.JWTSecret, 15*time.Minute, 168*time.Hour)),
@@ -300,6 +303,7 @@ func newWorkspaceTestRouter(t *testing.T) http.Handler {
 		Briefs:    brief.NewHandler(brief.NewService(db)),
 		Campaigns: campaign.NewHandler(campaign.NewService(db)),
 		Portals:   portal.NewHandler(portal.NewService(db)),
+		Invites:   invite.NewHandler(inviteService),
 		Workspace: workspace.NewHandler(workspace.NewService(db)),
 	})
 }

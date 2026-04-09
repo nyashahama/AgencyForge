@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { AuthSession, Session, SessionUser } from "@/lib/api/client";
+import type { AuthSession, InvitePreview, Session, SessionUser } from "@/lib/api/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -100,6 +100,22 @@ export async function meWithBackend(accessToken: string): Promise<SessionUser> {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
+  });
+}
+
+export async function inspectInviteWithBackend(token: string): Promise<InvitePreview> {
+  return backendRequest<InvitePreview>(`/api/v1/invites/${token}`, {
+    method: "GET",
+  });
+}
+
+export async function acceptInviteWithBackend(
+  token: string,
+  body: { name: string; password: string },
+): Promise<Session> {
+  return backendRequest<Session>(`/api/v1/invites/${token}/accept`, {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
 

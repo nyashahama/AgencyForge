@@ -12,6 +12,7 @@ import (
 	"github.com/nyashahama/AgencyForge/backend/internal/campaign"
 	"github.com/nyashahama/AgencyForge/backend/internal/client"
 	"github.com/nyashahama/AgencyForge/backend/internal/config"
+	"github.com/nyashahama/AgencyForge/backend/internal/invite"
 	"github.com/nyashahama/AgencyForge/backend/internal/middleware"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/health"
 	"github.com/nyashahama/AgencyForge/backend/internal/portal"
@@ -26,6 +27,7 @@ type Handlers struct {
 	Briefs    *brief.Handler
 	Campaigns *campaign.Handler
 	Portals   *portal.Handler
+	Invites   *invite.Handler
 	Workspace *workspace.Handler
 }
 
@@ -48,6 +50,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, h Handlers) *chi.Mux {
 		r.Group(func(r chi.Router) {
 			r.Use(authRateLimiter.Middleware())
 			r.Mount("/auth", h.Auth.Routes())
+			if h.Invites != nil {
+				r.Mount("/invites", h.Invites.PublicRoutes())
+			}
 		})
 
 		r.Group(func(r chi.Router) {
@@ -60,6 +65,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, h Handlers) *chi.Mux {
 			r.Mount("/briefs", h.Briefs.Routes())
 			r.Mount("/campaigns", h.Campaigns.Routes())
 			r.Mount("/portals", h.Portals.Routes())
+			if h.Invites != nil {
+				r.Mount("/workspace/invites", h.Invites.ProtectedRoutes())
+			}
 			if h.Workspace != nil {
 				r.Mount("/workspace", h.Workspace.Routes())
 			}
