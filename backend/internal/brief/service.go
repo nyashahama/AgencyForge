@@ -15,6 +15,7 @@ import (
 	"github.com/nyashahama/AgencyForge/backend/db/gen"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/activity"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/authctx"
+	"github.com/nyashahama/AgencyForge/backend/internal/platform/authz"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/database"
 	platformrequest "github.com/nyashahama/AgencyForge/backend/internal/platform/request"
 )
@@ -85,6 +86,9 @@ func (s *Service) Get(ctx context.Context, principal authctx.Principal, briefID 
 func (s *Service) Create(ctx context.Context, principal authctx.Principal, input CreateInput) (*Detail, error) {
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("brief service is not configured with a database")
+	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
 	}
 
 	normalized, err := normalizeCreateInput(input, principal.Email)
@@ -176,6 +180,9 @@ func (s *Service) Create(ctx context.Context, principal authctx.Principal, input
 func (s *Service) Launch(ctx context.Context, principal authctx.Principal, briefID uuid.UUID, input LaunchInput) (*LaunchResult, error) {
 	if s.queries == nil || s.db == nil {
 		return nil, errors.New("brief service is not configured with a database")
+	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
 	}
 
 	normalized, err := normalizeLaunchInput(input)

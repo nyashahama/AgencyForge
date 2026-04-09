@@ -20,16 +20,15 @@ type Agent = {
 
 function mapApiAgent(s: SpecialistLoad): Agent {
   return {
-    name: s.specialist_name || s.specialist_code,
-    status: s.active_assignments > 0 ? "active" : "idle",
-    load: s.load_units,
-    color: s.active_assignments > 0 ? "#c8ff00" : "#d4d0c8",
+    name: s.name || s.code,
+    status: s.status,
+    load: s.load,
+    color: s.status === "idle" ? "#d4d0c8" : "#c8ff00",
   };
 }
 
 export default function AnalyticsPage() {
   const { accessToken } = useAuth();
-  const [campaigns, setCampaigns] = useState<{ progress: number; status: string }[]>([]);
   const [throughput, setThroughput] = useState<ThroughputDatum[]>([]);
   const [specialists, setSpecialists] = useState<Agent[]>([]);
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
@@ -71,14 +70,27 @@ export default function AnalyticsPage() {
     );
   }
 
+  if (error) {
+    return (
+      <DashboardShell>
+        <div className="flex h-64 flex-col items-center justify-center gap-4">
+          <p className="text-[var(--foreground-muted)]">{error}</p>
+          <Button variant="accent" onClick={fetchData}>
+            Retry
+          </Button>
+        </div>
+      </DashboardShell>
+    );
+  }
+
   const chartData =
     mode === "throughput"
-      ? throughput
+      ? throughput.map((item) => ({ day: item.day_label, campaigns: item.campaigns }))
       : specialists.slice(0, 7).map((agent) => ({ day: agent.name.slice(0, 3), campaigns: agent.load }));
 
-  const weeklyOutput = throughput.reduce((sum, item) => sum + item.campaigns, 0);
-  const avgCompletion = campaigns.length > 0 ? Math.round(campaigns.reduce((sum, c) => sum + c.progress, 0) / campaigns.length) : 0;
-  const activeSpecialists = specialists.filter((a) => a.status === "active").length;
+  const weeklyOutput = analytics?.overview.weekly_output ?? throughput.reduce((sum, item) => sum + item.campaigns, 0);
+  const avgCompletion = analytics?.overview.avg_completion_percent ?? 0;
+  const activeSpecialists = analytics?.overview.active_specialists ?? specialists.filter((a) => a.status !== "idle").length;
 
   return (
     <DashboardShell>
@@ -145,7 +157,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-[var(--foreground-muted)]">
               <div className="rounded-[22px] border border-[var(--border)] p-4">
-                Approval latency decreased by 18% week over week.
+                Average approval latency is {analytics?.overview.approval_latency_days.toFixed(1) ?? "0.0"} days.
               </div>
               <div className="rounded-[22px] border border-[var(--border)] p-4">
                 {specialists
@@ -157,7 +169,7 @@ export default function AnalyticsPage() {
                 remain the highest-utilization specialists.
               </div>
               <div className="rounded-[22px] border border-[var(--border)] p-4">
-                Same-day delivery is now the default for {campaigns.filter((c) => c.progress > 70).length} campaigns.
+                {analytics?.campaign_statuses.find((item) => item.status === "approved")?.count ?? 0} campaigns are currently in the approved state.
               </div>
             </CardContent>
           </Card>

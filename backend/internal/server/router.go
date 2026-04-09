@@ -31,16 +31,18 @@ type Handlers struct {
 
 func NewRouter(cfg *config.Config, logger *slog.Logger, h Handlers) *chi.Mux {
 	r := chi.NewRouter()
-	authRateLimiter := middleware.NewRateLimiter(cfg.AuthRateLimitRequests, cfg.AuthRateLimitWindow)
+	authRateLimiter := middleware.NewRateLimiterWithProxyTrust(cfg.AuthRateLimitRequests, cfg.AuthRateLimitWindow, cfg.TrustProxyHeaders)
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recover)
-	r.Use(middleware.Logger(logger))
+	r.Use(middleware.Logger(logger, cfg.TrustProxyHeaders))
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
 
 	r.Get("/healthz", h.Health.Healthz)
 	r.Get("/readyz", h.Health.Readyz)
-	r.Handle("/metrics", promhttp.Handler())
+	if cfg.ExposeMetrics {
+		r.Handle("/metrics", promhttp.Handler())
+	}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Group(func(r chi.Router) {

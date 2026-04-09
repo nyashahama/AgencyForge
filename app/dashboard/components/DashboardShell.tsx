@@ -23,9 +23,9 @@ type Agent = {
 
 function mapApiAgent(s: SpecialistLoad): Agent {
   return {
-    name: s.specialist_name || s.specialist_code,
-    status: s.active_assignments > 0 ? "active" : "idle",
-    load: s.load_units,
+    name: s.name || s.code,
+    status: s.status,
+    load: s.load,
   };
 }
 
@@ -36,16 +36,14 @@ export default function DashboardShell({
 }) {
   const { user, accessToken } = useAuth();
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!accessToken) return;
     analyticsApi.specialists(accessToken)
       .then((data) => {
         setAgents(data.map(mapApiAgent));
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => undefined);
   }, [accessToken]);
 
   const mappedUser: User = {

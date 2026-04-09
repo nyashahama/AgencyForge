@@ -8,6 +8,7 @@ import (
 
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/apierr"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/authctx"
+	"github.com/nyashahama/AgencyForge/backend/internal/platform/authz"
 	platformrequest "github.com/nyashahama/AgencyForge/backend/internal/platform/request"
 	"github.com/nyashahama/AgencyForge/backend/internal/platform/response"
 )
@@ -85,6 +86,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	brief, err := h.service.Create(r.Context(), principal, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case errors.Is(err, ErrClientNotFound):
 			apierr.Write(w, apierr.NotFound("CLIENT_NOT_FOUND", "client not found"))
 		case isValidationError(err):
@@ -120,6 +123,8 @@ func (h *Handler) Launch(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.Launch(r.Context(), principal, briefID, input)
 	if err != nil {
 		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
 		case errors.Is(err, ErrBriefNotFound):
 			apierr.Write(w, apierr.NotFound("BRIEF_NOT_FOUND", "brief not found"))
 		case errors.Is(err, ErrBriefAlreadyLaunched):

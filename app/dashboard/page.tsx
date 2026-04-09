@@ -102,10 +102,10 @@ function mapApiCampaign(c: CampaignSummary): Campaign {
 
 function mapApiAgent(s: SpecialistLoad): Agent {
   return {
-    name: s.specialist_name || s.specialist_code,
-    status: s.active_assignments > 0 ? "active" : "idle",
-    load: s.load_units,
-    color: s.active_assignments > 0 ? "#c8ff00" : "#d4d0c8",
+    name: s.name || s.code,
+    status: s.status,
+    load: s.load,
+    color: s.status === "idle" ? "#d4d0c8" : "#c8ff00",
   };
 }
 
@@ -238,7 +238,7 @@ export default function Dashboard() {
             },
             {
               label: "Approval rhythm",
-              value: analytics ? `${Math.round((campaigns.filter(c => c.status === "approved").length / Math.max(campaigns.length, 1)) * 100)}%` : "—",
+              value: analytics ? `${Math.round(analytics.overview.approval_rate)}%` : "—",
               note: "First-pass approval rate across managed work",
             },
           ]}
@@ -252,7 +252,7 @@ export default function Dashboard() {
           },
           {
             label: "Briefs processed",
-            value: String(analytics?.briefs_in_intake ?? 0),
+            value: String(analytics?.overview.briefs_processed ?? 0),
             delta: "+18 this month",
             tag: "Lifetime",
           },
@@ -278,7 +278,7 @@ export default function Dashboard() {
               onSelectCampaign={setSelectedCampaign}
               onAdvanceCampaign={handleAdvanceCampaign}
             />
-            <ThroughputChart throughput={throughput.map(t => ({ day: t.day, campaigns: t.campaigns }))} />
+            <ThroughputChart throughput={throughput.map((item) => ({ day: item.day_label, campaigns: item.campaigns }))} />
           </div>
           <div className="space-y-6">
             <AgentStatus agents={specialists} />

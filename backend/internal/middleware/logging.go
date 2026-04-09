@@ -16,7 +16,7 @@ func (r *statusRecorder) WriteHeader(status int) {
 	r.ResponseWriter.WriteHeader(status)
 }
 
-func Logger(logger *slog.Logger) func(http.Handler) http.Handler {
+func Logger(logger *slog.Logger, trustProxyHeaders bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -32,7 +32,7 @@ func Logger(logger *slog.Logger) func(http.Handler) http.Handler {
 				"method", r.Method,
 				"path", r.URL.Path,
 				"status", recorder.status,
-				"remote_ip", clientIP(r),
+				"remote_ip", clientIP(r, trustProxyHeaders),
 				"duration_ms", time.Since(start).Milliseconds(),
 			)
 		})

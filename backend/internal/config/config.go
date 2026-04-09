@@ -19,6 +19,8 @@ type Config struct {
 	AppBaseURL            string
 	AuthRateLimitRequests int
 	AuthRateLimitWindow   time.Duration
+	ExposeMetrics         bool
+	TrustProxyHeaders     bool
 }
 
 func Load() (*Config, error) {
@@ -47,6 +49,16 @@ func Load() (*Config, error) {
 	}
 
 	cfg.AuthRateLimitWindow, err = parseDuration("AUTH_RATE_LIMIT_WINDOW", time.Minute)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.ExposeMetrics, err = parseBool("EXPOSE_METRICS", false)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.TrustProxyHeaders, err = parseBool("TRUST_PROXY_HEADERS", false)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +146,20 @@ func parsePositiveInt(key string, fallback int) (int, error) {
 	}
 	if parsed < 1 {
 		return 0, fmt.Errorf("%s must be greater than 0", key)
+	}
+
+	return parsed, nil
+}
+
+func parseBool(key string, fallback bool) (bool, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback, nil
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("invalid boolean for %s: %w", key, err)
 	}
 
 	return parsed, nil
