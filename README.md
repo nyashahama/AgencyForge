@@ -113,6 +113,7 @@ cd backend
 cp .env.example .env
 make docker-up
 make migrate-up
+make seed
 make run
 ```
 
