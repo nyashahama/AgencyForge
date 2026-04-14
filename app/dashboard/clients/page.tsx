@@ -44,8 +44,16 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<ReturnType<typeof mapApiClient>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ReturnType<typeof mapApiClient> | null>(null);
   const [note, setNote] = useState("");
+  const [draft, setDraft] = useState({
+    name: "",
+    leadEmail: "",
+    health: "strong" as ClientHealth,
+    notes: "",
+    mrr: "",
+  });
 
   const fetchClients = useCallback(async () => {
     if (!accessToken) return;
@@ -83,6 +91,36 @@ export default function ClientsPage() {
       await fetchClients();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save client");
+    }
+  };
+
+  const handleCreateClient = async () => {
+    if (!accessToken || !draft.name.trim() || !draft.leadEmail.trim()) return;
+
+    try {
+      const mrr = parseInt(draft.mrr.replace(/[^0-9]/g, ""), 10);
+      await clientsApi.create(
+        {
+          name: draft.name.trim(),
+          lead_email: draft.leadEmail.trim(),
+          health: draft.health,
+          notes: draft.notes.trim(),
+          mrr_cents: Number.isNaN(mrr) ? 0 : mrr * 100,
+        },
+        accessToken,
+      );
+
+      setCreateOpen(false);
+      setDraft({
+        name: "",
+        leadEmail: "",
+        health: "strong",
+        notes: "",
+        mrr: "",
+      });
+      await fetchClients();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create client");
     }
   };
 
@@ -139,6 +177,11 @@ export default function ClientsPage() {
             },
           ]}
         />
+        <div className="flex justify-end">
+          <Button variant="accent" className="rounded-full" onClick={() => setCreateOpen(true)}>
+            New client
+          </Button>
+        </div>
         <div className="grid gap-4 lg:grid-cols-2">
           {clients.map((client) => (
             <Card key={client.id}>
@@ -199,6 +242,81 @@ export default function ClientsPage() {
           ))}
         </div>
       </div>
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create client account"
+        description="Add a new client profile to the operations workspace."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onClick={handleCreateClient}
+              disabled={!draft.name.trim() || !draft.leadEmail.trim()}
+            >
+              Create client
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium">Client name</label>
+            <Input
+              value={draft.name}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, name: event.target.value }))
+              }
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Lead email</label>
+            <Input
+              type="email"
+              value={draft.leadEmail}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, leadEmail: event.target.value }))
+              }
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Health</label>
+            <select
+              value={draft.health}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, health: event.target.value as ClientHealth }))
+              }
+              className="flex h-11 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm"
+            >
+              <option value="strong">strong</option>
+              <option value="watch">watch</option>
+              <option value="risk">risk</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">MRR (USD)</label>
+            <Input
+              inputMode="numeric"
+              value={draft.mrr}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, mrr: event.target.value }))
+              }
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Operating note</label>
+            <Input
+              value={draft.notes}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, notes: event.target.value }))
+              }
+            />
+          </div>
+        </div>
+      </Modal>
       <Modal
         open={Boolean(selectedClient)}
         onClose={() => {

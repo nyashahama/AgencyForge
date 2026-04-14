@@ -1,4 +1,4 @@
-import { apiClient, type AuthSession, type Client, type CampaignSummary, type Brief, type Portal, type Playbook, type SettingGroup, type ActivityItem, type DashboardAnalytics, type ThroughputDatum, type SpecialistLoad, type WorkspaceInvite, type InvitePreview } from "./client";
+import { apiClient, type AuthSession, type Client, type CampaignSummary, type Brief, type BriefDetail, type Portal, type Playbook, type SettingGroup, type ActivityItem, type DashboardAnalytics, type ThroughputDatum, type SpecialistLoad, type WorkspaceInvite, type InvitePreview } from "./client";
 
 async function authRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -62,7 +62,24 @@ export const clients = {
     return apiClient.get<Client>(`/api/v1/clients/${id}`, {}, accessToken);
   },
 
-  create: async (body: Partial<Client>, accessToken: string): Promise<Client> => {
+  create: async (
+    body: {
+      name: string;
+      slug?: string;
+      lead_email: string;
+      health?: string;
+      notes?: string;
+      mrr_cents?: number;
+      open_approvals_count?: number;
+      primary_contact?: {
+        name?: string;
+        email?: string;
+        role?: string;
+      };
+      initial_touchpoint?: string;
+    },
+    accessToken: string,
+  ): Promise<Client> => {
     return apiClient.post<Client>("/api/v1/clients", body, accessToken);
   },
 
@@ -90,8 +107,25 @@ export const briefs = {
     return apiClient.get<Brief>(`/api/v1/briefs/${id}`, {}, accessToken);
   },
 
-  create: async (body: Partial<Brief>, accessToken: string): Promise<Brief> => {
-    return apiClient.post<Brief>("/api/v1/briefs", body, accessToken);
+  create: async (
+    body: {
+      client_id: string;
+      title: string;
+      channel: string;
+      pages?: number;
+      owner_email?: string;
+      source_type?: string;
+      documents?: Array<{
+        storage_key: string;
+        original_filename: string;
+        media_type?: string;
+        byte_size?: number;
+        page_count?: number;
+      }>;
+    },
+    accessToken: string,
+  ): Promise<BriefDetail> => {
+    return apiClient.post<BriefDetail>("/api/v1/briefs", body, accessToken);
   },
 
   launch: async (
@@ -162,7 +196,23 @@ export const portals = {
     return apiClient.get<Portal>(`/api/v1/portals/${id}`, {}, accessToken);
   },
 
-  create: async (body: Partial<Portal>, accessToken: string): Promise<Portal> => {
+  create: async (
+    body: {
+      client_id: string;
+      name: string;
+      slug?: string;
+      theme?: string;
+      review_mode?: string;
+      share_state?: string;
+      description?: string;
+      default_review_flow?: {
+        name?: string;
+        review_mode?: string;
+        config?: Record<string, unknown>;
+      };
+    },
+    accessToken: string,
+  ): Promise<Portal> => {
     return apiClient.post<Portal>("/api/v1/portals", body, accessToken);
   },
 

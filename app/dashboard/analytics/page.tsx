@@ -120,7 +120,7 @@ export default function AnalyticsPage() {
             },
             {
               label: "Approval latency",
-              value: "1.3d",
+              value: analytics ? `${analytics.overview.approval_latency_days.toFixed(1)}d` : "—",
               note: "Average time from package ready to client approval",
             },
           ]}

@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
 import { useAuth } from "@/lib/auth/session";
-import { portals as portalsApi } from "@/lib/api/endpoints";
-import type { Portal } from "@/lib/api/client";
+import { portals as portalsApi, clients as clientsApi } from "@/lib/api/endpoints";
+import type { Portal, Client } from "@/lib/api/client";
 
 function formatTimeAgo(dateStr: string | undefined): string {
   if (!dateStr) return "Never";
@@ -41,19 +41,45 @@ function mapApiPortal(p: Portal) {
   };
 }
 
+function mapApiClient(c: Client) {
+  return {
+    id: c.id,
+    name: c.name,
+  };
+}
+
 export default function PortalPage() {
   const { accessToken } = useAuth();
   const [portals, setPortals] = useState<ReturnType<typeof mapApiPortal>[]>([]);
+  const [clients, setClients] = useState<ReturnType<typeof mapApiClient>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [selectedPortal, setSelectedPortal] = useState<ReturnType<typeof mapApiPortal> | null>(null);
+  const [draft, setDraft] = useState({
+    clientId: "",
+    name: "",
+    theme: "graphite-lime",
+    reviewMode: "stage-gate",
+    description: "",
+  });
 
-  const fetchPortals = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!accessToken) return;
     try {
       setLoading(true);
-      const data = await portalsApi.list(accessToken);
-      setPortals(data.map(mapApiPortal));
+      const [portalsData, clientsData] = await Promise.all([
+        portalsApi.list(accessToken),
+        clientsApi.list(accessToken),
+      ]);
+      setPortals(portalsData.map(mapApiPortal));
+      const mappedClients = clientsData.map(mapApiClient);
+      setClients(mappedClients);
+      setDraft((current) =>
+        current.clientId || mappedClients.length === 0
+          ? current
+          : { ...current, clientId: mappedClients[0].id },
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load portals");
@@ -63,8 +89,8 @@ export default function PortalPage() {
   }, [accessToken]);
 
   useEffect(() => {
-    fetchPortals();
-  }, [fetchPortals]);
+    fetchData();
+  }, [fetchData]);
 
   const handleToggleShare = async (portalId: string, currentState: string) => {
     if (!accessToken) return;
@@ -74,7 +100,7 @@ export default function PortalPage() {
       } else {
         await portalsApi.publish(portalId, {}, accessToken);
       }
-      await fetchPortals();
+      await fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update portal");
     }
@@ -92,9 +118,37 @@ export default function PortalPage() {
         accessToken,
       );
       setSelectedPortal(null);
-      await fetchPortals();
+      await fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save portal");
+    }
+  };
+
+  const handleCreatePortal = async () => {
+    if (!accessToken || !draft.clientId || !draft.name.trim()) return;
+    try {
+      await portalsApi.create(
+        {
+          client_id: draft.clientId,
+          name: draft.name.trim(),
+          theme: draft.theme.trim() || undefined,
+          review_mode: draft.reviewMode,
+          description: draft.description.trim() || undefined,
+        },
+        accessToken,
+      );
+      setCreateOpen(false);
+      setDraft((current) => ({
+        ...current,
+        clientId: clients[0]?.id ?? "",
+        name: "",
+        theme: "graphite-lime",
+        reviewMode: "stage-gate",
+        description: "",
+      }));
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create portal");
     }
   };
 
@@ -149,6 +203,11 @@ export default function PortalPage() {
             },
           ]}
         />
+        <div className="flex justify-end">
+          <Button variant="accent" className="rounded-full" onClick={() => setCreateOpen(true)}>
+            New portal
+          </Button>
+        </div>
         <div className="grid gap-4 lg:grid-cols-3">
           {portals.map((workspace) => (
             <Card key={workspace.id}>
@@ -185,6 +244,89 @@ export default function PortalPage() {
           ))}
         </div>
       </div>
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create portal"
+        description="Set up a new client-facing workspace."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onClick={handleCreatePortal}
+              disabled={!draft.clientId || !draft.name.trim()}
+            >
+              Create portal
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium">Portal name</label>
+            <Input
+              value={draft.name}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, name: event.target.value }))
+              }
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Client</label>
+            <select
+              value={draft.clientId}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, clientId: event.target.value }))
+              }
+              className="flex h-11 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm"
+            >
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium">Theme</label>
+              <Input
+                value={draft.theme}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, theme: event.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Review mode</label>
+              <select
+                value={draft.reviewMode}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, reviewMode: event.target.value }))
+                }
+                className="flex h-11 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm"
+              >
+                <option value="stage-gate">stage-gate</option>
+                <option value="rolling-review">rolling-review</option>
+                <option value="compliance-first">compliance-first</option>
+                <option value="custom">custom</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Description</label>
+            <Input
+              value={draft.description}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, description: event.target.value }))
+              }
+            />
+          </div>
+        </div>
+      </Modal>
       <Modal
         open={Boolean(selectedPortal)}
         onClose={() => setSelectedPortal(null)}

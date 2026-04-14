@@ -55,6 +55,7 @@ cd backend
 cp .env.example .env
 make docker-up
 make migrate-up
+make seed
 make run
 ```
 
@@ -74,6 +75,7 @@ Server:
 - `make migrate-up`
 - `make migrate-down`
 - `make migrate-status`
+- `make seed`
 - `make docker-up`
 - `make docker-down`
 
@@ -114,6 +116,14 @@ Server:
 go test ./... -count=1
 DATABASE_URL=postgres://agencyforge:agencyforge@localhost:5432/agencyforge?sslmode=disable go test ./tests/integration/... -tags=integration -count=1 -v
 ```
+
+## Seeded Demo Credentials
+
+Running `make seed` creates deterministic fixture data and these users:
+
+- `owner@agencyforge.test` / `Password123!`
+- `admin@agencyforge.test` / `Password123!`
+- `member@agencyforge.test` / `Password123!`
 
 ## Related Docs
 
