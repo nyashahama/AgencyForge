@@ -126,6 +126,29 @@ export interface Brief {
   updated_at: string;
 }
 
+export interface BriefDocument {
+  id: string;
+  storage_key: string;
+  original_filename: string;
+  media_type: string;
+  byte_size: number;
+  page_count: number;
+  created_at: string;
+}
+
+export interface BriefStatusHistory {
+  id: string;
+  from_status?: string;
+  to_status: string;
+  note: string;
+  created_at: string;
+}
+
+export interface BriefDetail extends Brief {
+  documents: BriefDocument[];
+  history: BriefStatusHistory[];
+}
+
 export interface Portal {
   id: string;
   client_id: string;

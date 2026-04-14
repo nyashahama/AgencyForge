@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import DashboardShell from "../components/DashboardShell";
 import DashboardPageIntro from "../components/DashboardPageIntro";
 import DashboardKpiGrid from "../components/DashboardKpiGrid";
 import StatusPill from "../components/StatusPill";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
 import { useAuth } from "@/lib/auth/session";
-import { briefs as briefsApi } from "@/lib/api/endpoints";
-import type { Brief } from "@/lib/api/client";
+import { briefs as briefsApi, clients as clientsApi } from "@/lib/api/endpoints";
+import type { Brief, Client } from "@/lib/api/client";
 
 type BriefStatus = "new" | "processing" | "ready" | "blocked" | "launched";
 
@@ -41,20 +42,62 @@ function mapApiBrief(b: Brief) {
   };
 }
 
+function mapApiClient(c: Client) {
+  return {
+    id: c.id,
+    name: c.name,
+  };
+}
+
+function fileTitle(fileName: string): string {
+  return fileName.replace(/\.[^.]+$/, "");
+}
+
+function storageKeyForFile(file: File, index: number): string {
+  const normalizedName = file.name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `uploads/${Date.now()}-${index}-${normalizedName || "brief-file"}`;
+}
+
 export default function BriefsPage() {
   const { accessToken } = useAuth();
   const [briefs, setBriefs] = useState<ReturnType<typeof mapApiBrief>[]>([]);
+  const [clients, setClients] = useState<ReturnType<typeof mapApiClient>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedBrief, setSelectedBrief] = useState<ReturnType<typeof mapApiBrief> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [draft, setDraft] = useState({
+    clientId: "",
+    title: "",
+    channel: "paid-social",
+    pages: "0",
+    ownerEmail: "",
+    sourceType: "upload",
+  });
 
-  const fetchBriefs = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!accessToken) return;
     try {
       setLoading(true);
-      const data = await briefsApi.list(accessToken);
-      setBriefs(data.map(mapApiBrief));
+      const [briefsData, clientsData] = await Promise.all([
+        briefsApi.list(accessToken),
+        clientsApi.list(accessToken),
+      ]);
+      setBriefs(briefsData.map(mapApiBrief));
+      const mappedClients = clientsData.map(mapApiClient);
+      setClients(mappedClients);
+      setDraft((current) =>
+        current.clientId || mappedClients.length === 0
+          ? current
+          : { ...current, clientId: mappedClients[0].id },
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load briefs");
@@ -64,8 +107,8 @@ export default function BriefsPage() {
   }, [accessToken]);
 
   useEffect(() => {
-    fetchBriefs();
-  }, [fetchBriefs]);
+    fetchData();
+  }, [fetchData]);
 
   const handleLaunchBrief = async (briefId: string) => {
     if (!accessToken) return;
@@ -73,9 +116,66 @@ export default function BriefsPage() {
     if (!brief) return;
     try {
       await briefsApi.launch(briefId, { campaign_name: brief.title }, accessToken);
-      await fetchBriefs();
+      await fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to launch brief");
+    }
+  };
+
+  const handlePrepareIntake = (files: File[]) => {
+    if (files.length === 0) return;
+    setSelectedFiles(files);
+    setDraft((current) => ({
+      ...current,
+      title: current.title || fileTitle(files[0].name),
+      sourceType: "upload",
+    }));
+    setCreateOpen(true);
+  };
+
+  const handleCreateBrief = async () => {
+    if (!accessToken || !draft.clientId || selectedFiles.length === 0) return;
+
+    const title = draft.title.trim() || fileTitle(selectedFiles[0].name);
+    if (!title) return;
+
+    const parsedPages = Number.parseInt(draft.pages, 10);
+    try {
+      await briefsApi.create(
+        {
+          client_id: draft.clientId,
+          title,
+          channel: draft.channel.trim() || "paid-social",
+          pages: Number.isNaN(parsedPages) ? 0 : Math.max(parsedPages, 0),
+          owner_email: draft.ownerEmail.trim() || undefined,
+          source_type: draft.sourceType,
+          documents: selectedFiles.map((file, index) => ({
+            storage_key: storageKeyForFile(file, index),
+            original_filename: file.name,
+            media_type: file.type || "application/octet-stream",
+            byte_size: file.size,
+            page_count: 0,
+          })),
+        },
+        accessToken,
+      );
+      setCreateOpen(false);
+      setSelectedFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      setDraft((current) => ({
+        ...current,
+        clientId: clients[0]?.id ?? "",
+        title: "",
+        channel: "paid-social",
+        pages: "0",
+        ownerEmail: "",
+        sourceType: "upload",
+      }));
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create brief");
     }
   };
 
@@ -134,6 +234,17 @@ export default function BriefsPage() {
         />
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-6">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                handlePrepareIntake(files);
+              }}
+            />
             <div
               onDragOver={(event) => {
                 event.preventDefault();
@@ -143,6 +254,8 @@ export default function BriefsPage() {
               onDrop={(event) => {
                 event.preventDefault();
                 setDragging(false);
+                const files = Array.from(event.dataTransfer.files ?? []);
+                handlePrepareIntake(files);
               }}
               className={`rounded-[28px] border-2 border-dashed p-8 transition ${
                 dragging
@@ -155,11 +268,15 @@ export default function BriefsPage() {
                   <p className="font-serif text-3xl tracking-[-0.04em]">Drop your brief here</p>
                   <p className="mt-3 max-w-xl text-sm leading-7 text-[var(--foreground-muted)]">
                     Accept PDF, DOCX, or TXT. The intake layer will normalize
-                    content, extract campaign metadata, and route the brief to the
-                    right specialists.
+                    content metadata, preserve source file details, and route the
+                    brief directly into the delivery queue.
                   </p>
                 </div>
-                <Button variant="accent" className="rounded-full">
+                <Button
+                  variant="accent"
+                  className="rounded-full"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   Choose file
                 </Button>
               </div>
@@ -251,6 +368,114 @@ export default function BriefsPage() {
           </Card>
         </div>
       </div>
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create intake brief"
+        description={`${selectedFiles.length} file${selectedFiles.length === 1 ? "" : "s"} selected`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onClick={handleCreateBrief}
+              disabled={!draft.clientId || selectedFiles.length === 0}
+            >
+              Create brief
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-[22px] border border-[var(--border)] p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-[var(--foreground-soft)]">
+              Attached files
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-[var(--foreground-muted)]">
+              {selectedFiles.map((file) => (
+                <li key={file.name}>
+                  {file.name} · {(file.size / 1024).toFixed(1)} KB
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Client</label>
+            <select
+              value={draft.clientId}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, clientId: event.target.value }))
+              }
+              className="flex h-11 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm"
+            >
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Brief title</label>
+            <Input
+              value={draft.title}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, title: event.target.value }))
+              }
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium">Channel</label>
+              <Input
+                value={draft.channel}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, channel: event.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Estimated pages</label>
+              <Input
+                inputMode="numeric"
+                value={draft.pages}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, pages: event.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium">Owner email</label>
+              <Input
+                type="email"
+                value={draft.ownerEmail}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, ownerEmail: event.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Source type</label>
+              <select
+                value={draft.sourceType}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, sourceType: event.target.value }))
+                }
+                className="flex h-11 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm"
+              >
+                <option value="upload">upload</option>
+                <option value="email">email</option>
+                <option value="api">api</option>
+                <option value="manual">manual</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </Modal>
       <Modal
         open={Boolean(selectedBrief)}
         onClose={() => setSelectedBrief(null)}

@@ -258,14 +258,14 @@ export default function Dashboard() {
           },
           {
             label: "Client approval rate",
-            value: "98%",
-            delta: "+2% vs last month",
+            value: analytics ? `${Math.round(analytics.overview.approval_rate)}%` : "—",
+            delta: "Live analytics",
             tag: "Rate",
           },
           {
             label: "Avg. turnaround",
-            value: "4.2h",
-            delta: "−0.6h vs last month",
+            value: analytics ? `${analytics.overview.avg_turnaround_days.toFixed(1)}d` : "—",
+            delta: "Live analytics",
             tag: "Speed",
           },
         ]} />
