@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/nyashahama/AgencyForge/backend/db/gen"
@@ -29,6 +31,17 @@ type normalizedReviewFlow struct {
 	Name       string
 	ReviewMode string
 	ConfigJSON []byte
+}
+
+type normalizedCreateInput struct {
+	ClientID          uuid.UUID
+	Name              string
+	Slug              string
+	Theme             string
+	ReviewMode        string
+	ShareState        string
+	Description       string
+	DefaultReviewFlow *ReviewFlowInput
 }
 
 func NewService(db *database.Pool) *Service {
@@ -86,6 +99,79 @@ func (s *Service) Get(ctx context.Context, principal authctx.Principal, portalID
 	}
 
 	return loadDetailWithQueries(ctx, s.queries, principal.AgencyID, portalID)
+}
+
+func (s *Service) Create(ctx context.Context, principal authctx.Principal, input CreateInput) (*Detail, error) {
+	if s.queries == nil || s.db == nil {
+		return nil, errors.New("portal service is not configured with a database")
+	}
+	if err := authz.RequireWriter(principal); err != nil {
+		return nil, err
+	}
+
+	normalized, err := normalizeCreateInput(input)
+	if err != nil {
+		return nil, err
+	}
+
+	return database.InTx(ctx, s.db, func(tx pgx.Tx) (*Detail, error) {
+		queries := s.queries.WithTx(tx)
+
+		if _, err := queries.GetClientByIDAndAgency(ctx, dbgen.GetClientByIDAndAgencyParams{
+			AgencyID: principal.AgencyID,
+			ID:       normalized.ClientID,
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrClientNotFound
+			}
+			return nil, fmt.Errorf("get client: %w", err)
+		}
+
+		created, err := queries.CreatePortal(ctx, dbgen.CreatePortalParams{
+			ClientID:    normalized.ClientID,
+			AgencyID:    principal.AgencyID,
+			Name:        normalized.Name,
+			Slug:        normalized.Slug,
+			Theme:       normalized.Theme,
+			ReviewMode:  normalized.ReviewMode,
+			ShareState:  normalized.ShareState,
+			Description: normalized.Description,
+		})
+		if err != nil {
+			if isUniqueViolation(err) {
+				return nil, ErrPortalSlugTaken
+			}
+			return nil, fmt.Errorf("create portal: %w", err)
+		}
+
+		reviewFlowInput, err := normalizeReviewFlowInput(normalized.DefaultReviewFlow, created.ReviewMode, created.Name)
+		if err != nil {
+			return nil, err
+		}
+		if err := ensureDefaultReviewFlow(ctx, queries, created.ID, reviewFlowInput); err != nil {
+			return nil, err
+		}
+
+		if _, err := activity.NewWriter(tx).Write(ctx, activity.EventInput{
+			AgencyID:    principal.AgencyID,
+			ActorUserID: &principal.UserID,
+			ClientID:    &created.ClientID,
+			PortalID:    &created.ID,
+			EventType:   "portal.created",
+			SubjectType: "portal",
+			SubjectID:   &created.ID,
+			Message:     fmt.Sprintf("Created portal %s", created.Name),
+			Metadata: map[string]any{
+				"slug":        created.Slug,
+				"review_mode": created.ReviewMode,
+				"share_state": created.ShareState,
+			},
+		}); err != nil {
+			return nil, fmt.Errorf("write activity event: %w", err)
+		}
+
+		return loadDetailWithQueries(ctx, queries, principal.AgencyID, created.ID)
+	})
 }
 
 func (s *Service) Update(ctx context.Context, principal authctx.Principal, portalID uuid.UUID, input UpdateInput) (*Detail, error) {
@@ -428,6 +514,64 @@ func ensureDefaultReviewFlow(ctx context.Context, queries *dbgen.Queries, portal
 	return nil
 }
 
+var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
+
+func normalizeCreateInput(input CreateInput) (normalizedCreateInput, error) {
+	clientIDValue := strings.TrimSpace(input.ClientID)
+	if clientIDValue == "" {
+		return normalizedCreateInput{}, fmt.Errorf("%w: client_id is required", ErrValidation)
+	}
+
+	clientID, err := uuid.Parse(clientIDValue)
+	if err != nil {
+		return normalizedCreateInput{}, fmt.Errorf("%w: client_id must be a valid UUID", ErrValidation)
+	}
+
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return normalizedCreateInput{}, fmt.Errorf("%w: name is required", ErrValidation)
+	}
+
+	slug := normalizeSlug(input.Slug, name)
+	if slug == "" {
+		return normalizedCreateInput{}, fmt.Errorf("%w: slug cannot be empty", ErrValidation)
+	}
+
+	reviewMode, err := normalizeReviewMode(input.ReviewMode, "stage-gate")
+	if err != nil {
+		return normalizedCreateInput{}, err
+	}
+
+	shareState, err := normalizeUpdateShareState(input.ShareState, "draft")
+	if err != nil {
+		return normalizedCreateInput{}, err
+	}
+
+	return normalizedCreateInput{
+		ClientID:          clientID,
+		Name:              name,
+		Slug:              slug,
+		Theme:             normalizeTheme(input.Theme, "graphite-lime"),
+		ReviewMode:        reviewMode,
+		ShareState:        shareState,
+		Description:       strings.TrimSpace(input.Description),
+		DefaultReviewFlow: input.DefaultReviewFlow,
+	}, nil
+}
+
+func normalizeSlug(raw string, fallback string) string {
+	value := strings.TrimSpace(strings.ToLower(raw))
+	if value == "" {
+		value = strings.TrimSpace(strings.ToLower(fallback))
+	}
+	value = slugPattern.ReplaceAllString(value, "-")
+	value = strings.Trim(value, "-")
+	if value == "" {
+		value = "portal"
+	}
+	return value
+}
+
 func normalizeTheme(raw string, fallback string) string {
 	value := strings.TrimSpace(raw)
 	if value == "" {
@@ -576,6 +720,11 @@ func uuidPtrString(value pgtype.UUID) *string {
 	}
 	id := uuid.UUID(value.Bytes).String()
 	return &id
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func mapPortalSummaryRow(row dbgen.ListPortalsByAgencyRow) Summary {

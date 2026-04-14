@@ -14,8 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/nyashahama/AgencyForge/backend/internal/auth"
 	"github.com/nyashahama/AgencyForge/backend/internal/brief"
 	"github.com/nyashahama/AgencyForge/backend/internal/campaign"
@@ -33,7 +31,7 @@ func TestPortalsListGetUpdatePublish_Integration(t *testing.T) {
 	router := newPortalTestRouter(t)
 	token := registerTestUser(t, router, "Sophia Lund")
 	clientID := createClientForToken(t, router, token, "Meridian Bank", "nia@meridian.test")
-	portalID := createPortalForClient(t, clientID, "Meridian Executive Portal")
+	portalID := createPortalForToken(t, router, token, clientID, "Meridian Executive Portal")
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/portals?page=1&per_page=10", nil)
 	listReq.Header.Set("Authorization", "Bearer "+token)
@@ -228,7 +226,7 @@ func TestPortalsAreAgencyScoped_Integration(t *testing.T) {
 	tokenA := registerTestUser(t, router, "Ava Grant")
 	tokenB := registerTestUser(t, router, "Marcus Reid")
 	clientID := createClientForToken(t, router, tokenA, "Volta Footwear", "hello@volta.test")
-	portalID := createPortalForClient(t, clientID, "Volta Launch Room")
+	portalID := createPortalForToken(t, router, tokenA, clientID, "Volta Launch Room")
 
 	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/portals/"+portalID, nil)
 	getReq.Header.Set("Authorization", "Bearer "+tokenB)
@@ -290,58 +288,39 @@ func newPortalTestRouter(t *testing.T) http.Handler {
 	})
 }
 
-func createPortalForClient(t *testing.T, clientID string, name string) string {
+func createPortalForToken(t *testing.T, router http.Handler, token string, clientID string, name string) string {
 	t.Helper()
 
-	slug := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
-	var portalID uuid.UUID
-	err := testDB.QueryRow(context.Background(), `
-		WITH created AS (
-			INSERT INTO portals (
-				client_id,
-				agency_id,
-				name,
-				slug,
-				theme,
-				review_mode,
-				share_state,
-				description
-			)
-			SELECT
-				id,
-				agency_id,
-				$2,
-				$3,
-				'graphite-lime',
-				'stage-gate',
-				'draft',
-				'Initial workspace'
-			FROM clients
-			WHERE id = $1::uuid
-			RETURNING id, review_mode
-		),
-		flow AS (
-			INSERT INTO portal_review_flows (
-				portal_id,
-				name,
-				review_mode,
-				config_json,
-				is_default
-			)
-			SELECT
-				id,
-				$2 || ' Default Flow',
-				review_mode,
-				'{"steps":["creative-review","client-review","publish"]}'::jsonb,
-				TRUE
-			FROM created
-		)
-		SELECT id
-		FROM created
-	`, clientID, name, slug).Scan(&portalID)
+	body, err := json.Marshal(map[string]any{
+		"client_id": clientID,
+		"name":      name,
+	})
 	if err != nil {
-		t.Fatalf("create portal fixture: %v", err)
+		t.Fatalf("json.Marshal() error = %v", err)
 	}
 
-	return portalID.String()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/portals", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create portal status = %d, want %d, body = %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+
+	var created struct {
+		Data struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&created); err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	if created.Data.ID == "" || created.Data.Name != name {
+		t.Fatalf("unexpected create payload: %+v", created.Data)
+	}
+
+	return created.Data.ID
 }

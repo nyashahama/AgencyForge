@@ -21,6 +21,39 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+	principal, err := authctx.FromContext(r.Context())
+	if err != nil {
+		apierr.Write(w, apierr.Unauthorized("UNAUTHORIZED", "missing auth context"))
+		return
+	}
+
+	var input CreateInput
+	if err := platformrequest.DecodeJSON(r, &input); err != nil {
+		apierr.Write(w, apierr.Invalid("INVALID_JSON", err.Error()))
+		return
+	}
+
+	item, err := h.service.Create(r.Context(), principal, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, authz.ErrForbidden):
+			apierr.Write(w, apierr.Forbidden("FORBIDDEN", "insufficient permissions"))
+		case errors.Is(err, ErrClientNotFound):
+			apierr.Write(w, apierr.NotFound("CLIENT_NOT_FOUND", "client not found"))
+		case errors.Is(err, ErrPortalSlugTaken):
+			apierr.Write(w, apierr.Conflict("PORTAL_SLUG_TAKEN", "portal slug already exists"))
+		case isValidationError(err):
+			apierr.Write(w, apierr.Invalid("VALIDATION_ERROR", err.Error()))
+		default:
+			apierr.Write(w, apierr.Internal("PORTAL_CREATE_FAILED", "could not create portal", err))
+		}
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, item)
+}
+
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	principal, err := authctx.FromContext(r.Context())
 	if err != nil {

@@ -8,6 +8,17 @@ type ReviewFlowInput struct {
 	Config     map[string]any `json:"config"`
 }
 
+type CreateInput struct {
+	ClientID          string           `json:"client_id"`
+	Name              string           `json:"name"`
+	Slug              string           `json:"slug"`
+	Theme             string           `json:"theme"`
+	ReviewMode        string           `json:"review_mode"`
+	ShareState        string           `json:"share_state"`
+	Description       string           `json:"description"`
+	DefaultReviewFlow *ReviewFlowInput `json:"default_review_flow"`
+}
+
 type UpdateInput struct {
 	Name              *string          `json:"name"`
 	Theme             *string          `json:"theme"`

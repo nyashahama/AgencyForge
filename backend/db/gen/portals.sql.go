@@ -27,6 +27,64 @@ func (q *Queries) CountPortalsByAgency(ctx context.Context, agencyID uuid.UUID) 
 	return count, err
 }
 
+const createPortal = `-- name: CreatePortal :one
+INSERT INTO portals (
+  client_id,
+  agency_id,
+  name,
+  slug,
+  theme,
+  review_mode,
+  share_state,
+  description
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8
+)
+RETURNING id, client_id, name, theme, review_mode, share_state, published_at, created_at, updated_at, agency_id, slug, description, last_published_at, archived_at
+`
+
+type CreatePortalParams struct {
+	ClientID    uuid.UUID `json:"client_id"`
+	AgencyID    uuid.UUID `json:"agency_id"`
+	Name        string    `json:"name"`
+	Slug        string    `json:"slug"`
+	Theme       string    `json:"theme"`
+	ReviewMode  string    `json:"review_mode"`
+	ShareState  string    `json:"share_state"`
+	Description string    `json:"description"`
+}
+
+func (q *Queries) CreatePortal(ctx context.Context, arg CreatePortalParams) (Portal, error) {
+	row := q.db.QueryRow(ctx, createPortal,
+		arg.ClientID,
+		arg.AgencyID,
+		arg.Name,
+		arg.Slug,
+		arg.Theme,
+		arg.ReviewMode,
+		arg.ShareState,
+		arg.Description,
+	)
+	var i Portal
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.Name,
+		&i.Theme,
+		&i.ReviewMode,
+		&i.ShareState,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AgencyID,
+		&i.Slug,
+		&i.Description,
+		&i.LastPublishedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
 const createPortalPublication = `-- name: CreatePortalPublication :one
 INSERT INTO portal_publications (
   portal_id,

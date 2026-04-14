@@ -35,6 +35,21 @@ WHERE agency_id = $1
   AND archived_at IS NULL
 LIMIT 1;
 
+-- name: CreatePortal :one
+INSERT INTO portals (
+  client_id,
+  agency_id,
+  name,
+  slug,
+  theme,
+  review_mode,
+  share_state,
+  description
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8
+)
+RETURNING *;
+
 -- name: GetPortalSummaryByIDAndAgency :one
 SELECT
   p.*,
