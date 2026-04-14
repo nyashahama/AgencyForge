@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local Codex worktrees can contain nested Next build output.
+    ".worktrees/**",
   ]),
 ]);
 
